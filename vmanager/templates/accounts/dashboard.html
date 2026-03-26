@@ -1,0 +1,39 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Dashboard | V-Manager{% endblock %}
+
+{% block auth_content %}
+<header class="auth-header">
+    <h1>Hello, {{ request.user.first_name|default:request.user.username }}</h1>
+    <p>Your JWT-backed session is active through secure HttpOnly cookies.</p>
+</header>
+
+<section class="dashboard-panel">
+    <div class="dashboard-grid">
+        <div>
+            <strong>Email</strong>
+            <p>{{ request.user.email }}</p>
+        </div>
+        <div>
+            <strong>Role</strong>
+            <p>{{ request.user.profile.get_role_display }}</p>
+        </div>
+        <div>
+            <strong>Club/Team</strong>
+            <p>{{ request.user.profile.club_name }}</p>
+        </div>
+        <div>
+            <strong>Child Name</strong>
+            <p>{{ request.user.profile.child_name|default:"-" }}</p>
+        </div>
+    </div>
+
+    <div class="dashboard-actions">
+        <a class="dashboard-link" href="{% url 'accounts:me' %}">Open Authenticated Profile JSON</a>
+        <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="auth-submit auth-submit-secondary">Log Out</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

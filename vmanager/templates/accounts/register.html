@@ -1,0 +1,151 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Register | V-Manager{% endblock %}
+
+{% block body_class %}auth-register-page{% endblock %}
+
+{% block auth_content %}
+<main class="auth-shell auth-shell-register">
+    <a class="auth-brand auth-brand-centered" href="{% url 'home' %}">
+        <img src="/static/Logo.png" alt="V-Manager logo">
+        <span>V-Manager</span>
+    </a>
+
+    <section class="auth-intro auth-intro-centered">
+        <h1>Get Started Now!</h1>
+        <p>Create your account and start managing your volleyball team in minutes.</p>
+    </section>
+
+    <section class="auth-card auth-card-register">
+        {% if messages %}
+            <div class="auth-messages">
+                {% for message in messages %}
+                    <p class="auth-message">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if form and form.non_field_errors %}
+            <div class="auth-errors">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <header class="auth-card-header">
+            <h2>Create Your Account</h2>
+            <p>Start your journey with V-Manager!</p>
+        </header>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            <div class="auth-grid auth-grid-split">
+                <div class="auth-field">
+                    <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} <span>*</span></label>
+                    {{ form.first_name }}
+                    {{ form.first_name.errors }}
+                </div>
+                <div class="auth-field">
+                    <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} <span>*</span></label>
+                    {{ form.last_name }}
+                    {{ form.last_name.errors }}
+                </div>
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span>*</span></label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.password.id_for_label }}">{{ form.password.label }} <span>*</span></label>
+                <div class="auth-password-wrap">
+                    {{ form.password }}
+                    <button
+                        type="button"
+                        class="auth-password-toggle"
+                        data-password-toggle
+                        data-target="{{ form.password.id_for_label }}"
+                        aria-label="Show password"
+                        aria-pressed="false"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                            <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="auth-hint">At least 8 characters</div>
+                {{ form.password.errors }}
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.role.id_for_label }}">{{ form.role.label }} <span>*</span></label>
+                {{ form.role }}
+                {{ form.role.errors }}
+            </div>
+
+            <div class="auth-field auth-conditional {% if form.role.value != 'manager' and form.role.value != 'staff' %}is-hidden{% endif %}" data-role-field="club-info">
+                <label for="{{ form.club_name.id_for_label }}">{{ form.club_name.label }}</label>
+                {{ form.club_name }}
+                {{ form.club_name.errors }}
+            </div>
+
+            <div class="auth-field auth-conditional {% if form.role.value != 'parent' %}is-hidden{% endif %}" data-role-field="child-info">
+                <label for="{{ form.child_name.id_for_label }}">{{ form.child_name.label }}</label>
+                {{ form.child_name }}
+                {{ form.child_name.errors }}
+            </div>
+
+            <button type="submit" class="auth-submit">Create Account <span aria-hidden="true">-&gt;</span></button>
+            <p class="auth-switch">Already have an account? <a href="{% url 'accounts:login' %}">Sign In</a></p>
+        </form>
+    </section>
+</main>
+
+<script>
+    (() => {
+        const roleSelect = document.getElementById("{{ form.role.id_for_label }}");
+        const clubFields = document.querySelectorAll('[data-role-field="club-info"]');
+        const childFields = document.querySelectorAll('[data-role-field="child-info"]');
+        const rolesThatNeedClubInfo = new Set(["manager", "staff"]);
+        const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
+
+        if (roleSelect) {
+            const syncRoleFields = () => {
+                const showClubFields = rolesThatNeedClubInfo.has(roleSelect.value);
+                const showChildFields = roleSelect.value === "parent";
+
+                clubFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !showClubFields);
+                });
+
+                childFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !showChildFields);
+                });
+            };
+
+            syncRoleFields();
+            roleSelect.addEventListener("change", syncRoleFields);
+        }
+
+        passwordToggleButtons.forEach((button) => {
+            const target = document.getElementById(button.dataset.target);
+            if (!target) {
+                return;
+            }
+
+            button.addEventListener("click", () => {
+                const showPassword = target.type === "password";
+                target.type = showPassword ? "text" : "password";
+                button.classList.toggle("is-visible", showPassword);
+                button.setAttribute("aria-pressed", showPassword ? "true" : "false");
+                button.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+            });
+        });
+    })();
+</script>
+{% endblock %}

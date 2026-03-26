@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -52,6 +54,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'accounts.middleware.JWTAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -122,3 +125,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'screenshots',
+]
+
+JWT_ACCESS_COOKIE_NAME = "vm_access_token"
+JWT_REFRESH_COOKIE_NAME = "vm_refresh_token"
+JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
+JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
+
+EMAIL_BACKEND ="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.office365.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "V_Manager@outlook.com"
+EMAIL_HOST_PASSWORD = "ropildsvsaugfcse"
+DEFAULT_FROM_EMAIL = "V-Manager <V_Manager@outlook.com>"
+PASSWORD_RESET_TIMEOUT = 3600

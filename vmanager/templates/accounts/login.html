@@ -1,0 +1,153 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Login | V-Manager{% endblock %}
+
+{% block body_class %}auth-login-page{% endblock %}
+
+{% block auth_content %}
+<main class="auth-shell auth-shell-login">
+    <section class="auth-login-grid">
+        <div class="auth-login-copy">
+            <a class="auth-brand" href="{% url 'home' %}">
+                <img src="/static/Logo.png" alt="V-Manager logo">
+                <span>V-Manager</span>
+            </a>
+
+            <div class="auth-login-hero">
+                <h1>Welcome Back to Your Team Hub</h1>
+                <p>Access your team dashboard, manage schedules, track performance, and stay connected with your volleyball community.</p>
+            </div>
+
+            <div class="auth-info-stack">
+                <article class="auth-info-card">
+                    <div class="auth-info-icon auth-info-icon-blue" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M8 21h8"></path>
+                            <path d="M12 17v4"></path>
+                            <path d="M7 4h10v5a5 5 0 0 1-10 0V4z"></path>
+                            <path d="M5 6H3a2 2 0 0 0 2 4h2"></path>
+                            <path d="M19 6h2a2 2 0 0 1-2 4h-2"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>All-in-One Platform</h3>
+                        <p>Everything you need to manage your volleyball team.</p>
+                    </div>
+                </article>
+
+                <article class="auth-info-card">
+                    <div class="auth-info-icon auth-info-icon-gold" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M5 12h14"></path>
+                            <path d="M13 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>Quick Access</h3>
+                        <p>Jump right into your dashboard and start managing.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <section class="auth-card auth-card-login">
+            {% if messages %}
+                <div class="auth-messages">
+                    {% for message in messages %}
+                        <p class="auth-message">{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form and form.non_field_errors %}
+                <div class="auth-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <header class="auth-card-header auth-card-header-login">
+                <h2>Sign In to Your Account</h2>
+                <p>Enter your credentials to access your team dashboard</p>
+            </header>
+
+            <form method="post" class="auth-form auth-form-compact auth-form-login" id="login-form">
+                {% csrf_token %}
+                <div class="auth-field">
+                    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {{ form.email.errors }}
+                </div>
+
+                <div class="auth-field">
+                    <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                    <div class="auth-password-wrap">
+                        {{ form.password }}
+                        <button
+                            type="button"
+                            class="auth-password-toggle"
+                            data-password-toggle
+                            data-target="{{ form.password.id_for_label }}"
+                            aria-label="Show password"
+                            aria-pressed="false"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                                <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {{ form.password.errors }}
+                </div>
+
+                <div class="auth-login-row">
+                    <label class="auth-checkbox">
+                        <input type="checkbox" name="remember_me">
+                        <span>Remember Me</span>
+                    </label>
+                    <a href="{% url 'accounts:forgot_password' %}" class="auth-inline-link">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="auth-submit">Sign In <span aria-hidden="true">-&gt;</span></button>
+                <p class="auth-switch">Don't have an account? <a href="{% url 'accounts:register' %}">Get Started</a></p>
+            </form>
+        </section>
+    </section>
+</main>
+
+<script>
+    (() => {
+        const loginForm = document.getElementById("login-form");
+        const rememberCheckbox = loginForm?.querySelector('input[name="remember_me"]');
+        const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
+        const transientKey = "vm_transient_auth";
+
+        if (loginForm && rememberCheckbox) {
+            loginForm.addEventListener("submit", () => {
+                if (rememberCheckbox.checked) {
+                    sessionStorage.removeItem(transientKey);
+                } else {
+                    sessionStorage.setItem(transientKey, "1");
+                }
+            });
+        }
+
+        passwordToggleButtons.forEach((button) => {
+            const target = document.getElementById(button.dataset.target);
+            if (!target) {
+                return;
+            }
+
+            button.addEventListener("click", () => {
+                const showPassword = target.type === "password";
+                target.type = showPassword ? "text" : "password";
+                button.classList.toggle("is-visible", showPassword);
+                button.setAttribute("aria-pressed", showPassword ? "true" : "false");
+                button.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+            });
+        });
+    })();
+</script>
+{% endblock %}

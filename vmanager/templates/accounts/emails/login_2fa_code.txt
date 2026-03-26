@@ -1,0 +1,9 @@
+Hello {{ first_name }},
+
+Your V-Manager verification code is:
+
+{{ code }}
+
+This code expires in {{ expiry_minutes }} minutes.
+
+If you did not try to sign in, you can ignore this email.

@@ -1,9 +1,401 @@
+{% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>V-Manager</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V-Manager | Volleyball Club Management</title>
+    <link rel="stylesheet" href="{% static 'core/home.css' %}">
 </head>
-<body>
-    <h1>Welcome to V-Manager</h1>
+<body
+    data-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
+    data-remembered="{% if request.COOKIES.vm_remember_me == '1' %}1{% else %}0{% endif %}"
+>
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <header class="site-header">
+        <div class="container nav-shell">
+            <a class="brand" href="#home" aria-label="V-Manager home">
+                <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
+                <span>V-Manager</span>
+            </a>
+
+            <nav class="site-nav" aria-label="Primary navigation">
+                <a href="#home">Home</a>
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#testimonials">Testimonials</a>
+                <a href="#contact">Contact</a>
+            </nav>
+
+            <div class="nav-actions">
+                {% if request.user.is_authenticated %}
+                    <span class="nav-user">Hi, {{ request.user.first_name|default:request.user.username }}</span>
+                    <form method="post" action="{% url 'accounts:logout' %}" class="nav-logout-form">
+                        {% csrf_token %}
+                        <button type="submit" class="button button-outline nav-logout-button">Log Out</button>
+                    </form>
+                {% else %}
+                    <a class="button button-outline" href="{% url 'accounts:login' %}">Sign In</a>
+                    <a class="button button-accent" href="{% url 'accounts:register' %}">Get Started</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero section-pattern" id="home">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <p class="eyebrow">Built for modern volleyball clubs</p>
+                    <h1>
+                        Simplify Your
+                        <span class="highlight">Volleyball Club</span>
+                        Management
+                    </h1>
+                    <p class="hero-text">
+                        All-in-one platform to manage teams, schedule events, track performance,
+                        and communicate with your volleyball community effortlessly.
+                    </p>
+                </div>
+
+                <div class="hero-media">
+                    <div class="hero-glow"></div>
+                    <div class="hero-frame">
+                        <img src="{% static 'PanelPhoto.png' %}" alt="Volleyball players competing at the net">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section feature-section" id="features">
+            <div class="container">
+                <div class="section-heading">
+                    <h2>Everything You Need to Run Your Club</h2>
+                    <p>
+                        Comprehensive tools designed specifically for volleyball clubs to
+                        streamline operations and enhance team performance.
+                    </p>
+                </div>
+
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <img src="{% static 'Image.png' %}" alt="Team management dashboard">
+                        <div class="feature-card-body">
+                            <h3>Team Management</h3>
+                            <p>Manage players, coaches, and staff with comprehensive profiles, roles, and permissions.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+
+                    <article class="feature-card">
+                        <img src="{% static 'Image2.png' %}" alt="Schedule and events calendar interface">
+                        <div class="feature-card-body">
+                            <h3>Schedule &amp; Events</h3>
+                            <p>Plan practices, games, and tournaments with integrated calendar and automated reminders.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+
+                    <article class="feature-card">
+                        <img src="{% static 'Image3.png' %}" alt="Performance tracking analytics">
+                        <div class="feature-card-body">
+                            <h3>Performance Tracking</h3>
+                            <p>Track player stats, game results, and team performance metrics in real-time.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+
+                    <article class="feature-card">
+                        <span class="feature-badge">New!</span>
+                        <img src="{% static 'Image4.png' %}" alt="Match readiness score analytics">
+                        <div class="feature-card-body">
+                            <h3>Match Readiness Score</h3>
+                            <p>An ML-based score that predicts team readiness using fitness, injury, and performance data.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+
+                    <article class="feature-card">
+                        <span class="feature-badge">New!</span>
+                        <img src="{% static 'Image5.png' %}" alt="AI evolution analytics hub">
+                        <div class="feature-card-body">
+                            <h3>AI Evolution Hub</h3>
+                            <p>Track player growth and uncover personalized improvement paths with clear analytics.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+
+                    <article class="feature-card">
+                        <span class="feature-badge feature-badge-wide">Enhanced!</span>
+                        <img src="{% static 'Image6.png' %}" alt="Communication hub with announcements">
+                        <div class="feature-card-body">
+                            <h3>Communication Hub</h3>
+                            <p>Keep everyone connected with announcements, chat, and notification workflows.</p>
+                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section club-fit-section" id="testimonials">
+            <div class="section-pattern section-pattern-blue">
+                <div class="container">
+                    <div class="section-heading section-heading-light">
+                        <h2>Built for Volleyball Clubs of All Sizes</h2>
+                        <p>
+                            Whether you are managing a small recreational team or running a large
+                            competitive club, V-Manager scales with your needs and grows with your organization.
+                        </p>
+                    </div>
+
+                    <div class="benefit-grid">
+                        <article class="benefit-card">
+                            <div class="benefit-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9.5" cy="7" r="4"/>
+                                    <path d="M19 8v6"/>
+                                    <path d="M16 11h6"/>
+                                </svg>
+                            </div>
+                            <h3>Easy to Use</h3>
+                            <p>Intuitive workflows for coaches, administrators, and parents. No technical expertise required.</p>
+                        </article>
+                        <article class="benefit-card">
+                            <div class="benefit-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M8 21h8"/>
+                                    <path d="M12 17v4"/>
+                                    <path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/>
+                                    <path d="M5 6H3a2 2 0 0 0 2 4h2"/>
+                                    <path d="M19 6h2a2 2 0 0 1-2 4h-2"/>
+                                </svg>
+                            </div>
+                            <h3>Proven Results</h3>
+                            <p>Streamline operations, improve communication, and spend more time focusing on your athletes.</p>
+                        </article>
+                        <article class="benefit-card">
+                            <div class="benefit-icon" aria-hidden="true">
+                                <img src="{% static 'Group.png' %}" alt="">
+                            </div>
+                            <h3>Always Improving</h3>
+                            <p>Regular updates and thoughtful new features shaped by the volleyball community.</p>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section pricing-section section-pattern" id="pricing">
+            <div class="container">
+                <div class="section-heading">
+                    <h2>Choose the Right Plan for Your Club</h2>
+                    <p>Flexible pricing options to fit clubs of all sizes. Start free, upgrade anytime.</p>
+                </div>
+
+                <div class="pricing-grid">
+                    <article class="pricing-card">
+                        <div class="pricing-top pricing-top-starter">
+                            <p class="plan-name">Starter</p>
+                            <span class="plan-label">Perfect for small clubs</span>
+                        </div>
+                        <div class="pricing-body">
+                            <div class="price-line">
+                                <span class="price">$49</span>
+                                <span class="price-note">/month</span>
+                            </div>
+                            <ul>
+                                <li>Up to 50 members</li>
+                                <li>Basic scheduling</li>
+                                <li>Team management</li>
+                            </ul>
+                            <a class="button button-primary button-block" href="#contact">Get Started</a>
+                        </div>
+                    </article>
+
+                    <article class="pricing-card pricing-card-featured">
+                        <div class="pricing-top pricing-top-pro">
+                            <p class="plan-name">Professional</p>
+                            <span class="plan-label">For growing clubs</span>
+                        </div>
+                        <div class="pricing-body">
+                            <div class="price-line">
+                                <span class="price">$99</span>
+                                <span class="price-note">/month</span>
+                            </div>
+                            <ul>
+                                <li>Up to 200 members</li>
+                                <li>Performance analytics</li>
+                                <li>Advanced scheduling</li>
+                                <li>Priority support</li>
+                                <li>Custom branding</li>
+                            </ul>
+                            <a class="button button-accent button-block" href="#contact">Get Started</a>
+                        </div>
+                    </article>
+
+                    <article class="pricing-card">
+                        <div class="pricing-top pricing-top-enterprise">
+                            <p class="plan-name">Enterprise</p>
+                            <span class="plan-label">For large organizations</span>
+                        </div>
+                        <div class="pricing-body">
+                            <div class="price-line">
+                                <span class="price">Custom</span>
+                            </div>
+                            <ul>
+                                <li>Unlimited members</li>
+                                <li>Advanced analytics</li>
+                                <li>Dedicated support</li>
+                                <li>Custom integrations</li>
+                            </ul>
+                            <a class="button button-primary button-block" href="#contact">Contact Sales</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section coach-section section-pattern" id="contact">
+            <div class="container">
+                <div class="section-heading coach-heading">
+                    <h2>Designed by Coaches, for Coaches</h2>
+                    <p>
+                        We understand the unique challenges of managing a volleyball club because
+                        we have been there.
+                    </p>
+                </div>
+
+                <div class="coach-grid">
+                    <article class="coach-card">
+                        <div class="coach-icon coach-icon-blue" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <h3>Better Communication</h3>
+                        <p>Keep everyone aligned with team updates, live alerts, and message threads that reduce missed information.</p>
+                    </article>
+                    <article class="coach-card">
+                        <div class="coach-icon coach-icon-gold" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <rect x="4" y="5" width="16" height="15" rx="2"/>
+                                <path d="M8 3v4"/>
+                                <path d="M16 3v4"/>
+                                <path d="M4 10h16"/>
+                            </svg>
+                        </div>
+                        <h3>Save Time</h3>
+                        <p>Automate scheduling, payment reminders, and attendance tracking so staff can focus on coaching.</p>
+                    </article>
+                    <article class="coach-card">
+                        <div class="coach-icon coach-icon-blue" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 19h16"/>
+                                <path d="M7 16v-5"/>
+                                <path d="M12 16V8"/>
+                                <path d="M17 16v-8"/>
+                            </svg>
+                        </div>
+                        <h3>Track Progress</h3>
+                        <p>Monitor player development with detailed analytics and performance insights that support better decisions.</p>
+                    </article>
+                    <article class="coach-card">
+                        <div class="coach-icon coach-icon-gold" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="9" cy="8" r="3"/>
+                                <path d="M3 19a6 6 0 0 1 12 0"/>
+                                <circle cx="17.5" cy="9.5" r="2.5"/>
+                                <path d="M15 19a4.5 4.5 0 0 1 6 0"/>
+                            </svg>
+                        </div>
+                        <h3>Grow Your Club</h3>
+                        <p>Use professional tools that scale with your program, from one team to multiple divisions.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <div class="footer-brand-mark">
+                    <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
+                    <span>V-Manager</span>
+                </div>
+                <p>The complete solution for volleyball club management.</p>
+            </div>
+
+            <div>
+                <h3>Product</h3>
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#testimonials">Testimonials</a>
+                <a href="#contact">Updates</a>
+            </div>
+
+            <div>
+                <h3>Company</h3>
+                <a href="#home">About</a>
+                <a href="#testimonials">Blog</a>
+                <a href="#pricing">Careers</a>
+                <a href="#contact">Contact</a>
+            </div>
+
+            <div>
+                <h3>Support</h3>
+                <a href="#contact">Help Center</a>
+                <a href="#contact">Documentation</a>
+                <a href="#contact">API Reference</a>
+                <a href="#contact">Community</a>
+            </div>
+        </div>
+    </footer>
+    <script>
+        (() => {
+            const transientKey = "vm_transient_auth";
+            const isAuthenticated = document.body.dataset.authenticated === "1";
+            const isRemembered = document.body.dataset.remembered === "1";
+            const logoutForm = document.querySelector(".nav-logout-form");
+
+            if (!isAuthenticated) {
+                sessionStorage.removeItem(transientKey);
+            } else if (!isRemembered) {
+                if (!sessionStorage.getItem(transientKey)) {
+                    if (logoutForm) {
+                        logoutForm.submit();
+                        return;
+                    }
+                } else {
+                    sessionStorage.setItem(transientKey, "1");
+                }
+            } else {
+                sessionStorage.removeItem(transientKey);
+            }
+
+            const toasts = document.querySelectorAll(".toast-message");
+            if (!toasts.length) {
+                return;
+            }
+
+            window.setTimeout(() => {
+                toasts.forEach((toast, index) => {
+                    window.setTimeout(() => {
+                        toast.classList.add("toast-hide");
+                        window.setTimeout(() => toast.remove(), 320);
+                    }, index * 120);
+                });
+            }, 2600);
+        })();
+    </script>
 </body>
 </html>

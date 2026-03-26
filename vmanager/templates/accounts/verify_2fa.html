@@ -1,0 +1,51 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Verify Code | V-Manager{% endblock %}
+
+{% block body_class %}auth-verify-page{% endblock %}
+
+{% block auth_content %}
+<main class="auth-shell auth-shell-narrow">
+    <section class="auth-card auth-card-verify">
+        {% if messages %}
+            <div class="auth-messages">
+                {% for message in messages %}
+                    <p class="auth-message">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if form and form.non_field_errors %}
+            <div class="auth-errors">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <header class="auth-card-header">
+            <h2>Two-Factor Verification</h2>
+            <p>We sent a 6-digit code to {{ masked_email }}. Enter it below to continue.</p>
+        </header>
+
+        <form method="post" class="auth-form auth-form-compact">
+            {% csrf_token %}
+            <div class="auth-field">
+                <label for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+                {{ form.code }}
+                {{ form.code.errors }}
+            </div>
+
+            <button type="submit" class="auth-submit">Verify Code <span aria-hidden="true">-&gt;</span></button>
+        </form>
+
+        <div class="auth-secondary-actions">
+            <form method="post" action="{% url 'accounts:resend_2fa' %}">
+                {% csrf_token %}
+                <button type="submit" class="auth-secondary-button">Resend Code</button>
+            </form>
+            <a href="{% url 'accounts:login' %}" class="auth-inline-link">Back to Sign In</a>
+        </div>
+    </section>
+</main>
+{% endblock %}
