@@ -5,7 +5,12 @@
 {% block body_class %}auth-verify-page{% endblock %}
 
 {% block auth_content %}
-<main class="auth-shell auth-shell-narrow">
+<main class="auth-shell auth-shell-narrow auth-shell-stack">
+    <a class="auth-brand auth-brand-centered" href="{% url 'home' %}">
+        <img src="/static/Logo.png" alt="V-Manager logo">
+        <span>V-Manager</span>
+    </a>
+
     <section class="auth-card auth-card-verify">
         {% if messages %}
             <div class="auth-messages">

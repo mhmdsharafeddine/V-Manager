@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=7">
+{% endblock %}
+
+{% block body_class %}team-page{% endblock %}
+
+{% block content %}
+<main class="team-shell">
+    <section class="team-hero">
+        <div class="container">
+            <h1>{{ page_title }}</h1>
+            <p>{{ page_description }}</p>
+        </div>
+    </section>
+
+    <section class="container member-layout">
+        <section class="member-form-card">
+            {% if messages %}
+                <div class="team-messages">
+                    {% for message in messages %}
+                        <p class="team-message">{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <div class="team-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <header class="member-form-head">
+                <div>
+                    <h2>{% if mode == "edit" %}Edit Member{% else %}Add New Member{% endif %}</h2>
+                    <p>Fill in the details below to {% if mode == "edit" %}update{% else %}add{% endif %} a roster member.</p>
+                </div>
+            </header>
+
+            {% if team %}
+                <div class="team-assignment-banner">
+                    <strong>Team assignment:</strong>
+                    <span>Any member added here will belong to <strong>{{ team.name }}</strong>.</span>
+                </div>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="member-form-grid">
+                {% csrf_token %}
+                {{ form.member_category }}
+
+                {% if mode == "edit" %}
+                    <div class="member-segmented-single">
+                        {% if form.member_category.value == "staff" %}
+                            <span class="member-segmented-single-pill">Staff/Coach</span>
+                        {% else %}
+                            <span class="member-segmented-single-pill">Player</span>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="member-segmented" data-member-category data-active="{{ form.member_category.value|default:'player' }}">
+                        <span class="member-segmented-indicator" data-member-indicator aria-hidden="true"></span>
+                        <button type="button" class="member-segmented-option" data-member-category-value="player">Player</button>
+                        <button type="button" class="member-segmented-option" data-member-category-value="staff">Staff/Coach</button>
+                    </div>
+                {% endif %}
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} <span>*</span></label>
+                        {{ form.first_name }}
+                        {{ form.first_name.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} <span>*</span></label>
+                        {{ form.last_name }}
+                        {{ form.last_name.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span>*</span></label>
+                        {{ form.email }}
+                        {{ form.email.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+                        {{ form.phone_number }}
+                        {{ form.phone_number.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.date_of_birth.id_for_label }}">{{ form.date_of_birth.label }}</label>
+                        {{ form.date_of_birth }}
+                        {{ form.date_of_birth.errors }}
+                    </div>
+                    <div class="team-field" data-player-only>
+                        <label for="{{ form.jersey_number.id_for_label }}">{{ form.jersey_number.label }}</label>
+                        {{ form.jersey_number }}
+                        {{ form.jersey_number.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two">
+                    <div class="team-field" data-player-only>
+                        <label for="{{ form.position.id_for_label }}">{{ form.position.label }} <span>*</span></label>
+                        {{ form.position }}
+                        {{ form.position.errors }}
+                    </div>
+                    <div class="team-field" data-player-only>
+                        <label for="{{ form.member_title.id_for_label }}">{{ form.member_title.label }} <span>*</span></label>
+                        {{ form.member_title }}
+                        {{ form.member_title.errors }}
+                    </div>
+                </div>
+
+                <div class="team-field">
+                    <label for="{{ form.profile_photo.id_for_label }}">{{ form.profile_photo.label }}</label>
+                    <label class="upload-shell" for="{{ form.profile_photo.id_for_label }}" data-upload-shell>
+                        <span class="upload-preview is-hidden" data-upload-preview-wrap>
+                            <img src="" alt="Selected profile photo preview" data-upload-preview>
+                        </span>
+                        <span class="upload-placeholder" data-upload-placeholder>
+                            <span class="upload-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M12 16V5"></path>
+                                    <path d="M8 9l4-4 4 4"></path>
+                                    <path d="M5 15v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"></path>
+                                </svg>
+                            </span>
+                            <span data-upload-label>Upload profile photo</span>
+                        </span>
+                    </label>
+                    {{ form.profile_photo }}
+                    {{ form.profile_photo.errors }}
+                </div>
+
+                {% if mode == "edit" %}
+                    <label class="active-toggle">
+                        {{ form.is_active }}
+                        <span>Active member</span>
+                    </label>
+                {% endif %}
+
+                <div class="member-form-actions">
+                    <button type="submit" class="team-primary-button">{{ submit_label }}</button>
+                    <a href="{% url 'team_management:roster' %}" class="team-secondary-button">Cancel</a>
+                </div>
+            </form>
+        </section>
+
+        <aside class="member-side-card">
+            {% if mode == "edit" and editing_member %}
+                <h3>Editing Member</h3>
+                <article class="recent-member-card">
+                    <div class="recent-member-head">
+                        <div class="member-avatar member-avatar-small">
+                            {% if editing_member.avatar_url %}
+                                <img src="{{ editing_member.avatar_url }}" alt="{{ editing_member.user.get_full_name }}">
+                            {% else %}
+                                <span>{{ editing_member.initials }}</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <strong>{{ editing_member.display_name }}</strong>
+                            <p>{{ editing_member.display_title }}</p>
+                        </div>
+                    </div>
+                    <span class="member-status {% if editing_member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ editing_member.status_label }}</span>
+                </article>
+            {% else %}
+                <h3>Recently added</h3>
+                <div class="recent-member-list">
+                    {% for member in recent_members %}
+                        <article class="recent-member-card">
+                            <div class="recent-member-head">
+                                <div>
+                                    <strong>{{ member.display_name }}</strong>
+                                    <p>{{ member.display_title }}{% if member.profile.position %} - {{ member.profile.position }}{% endif %}</p>
+                                </div>
+                                <span class="member-status {% if member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
+                            </div>
+                            <small>{{ member.membership.joined_at|date:"M. d, Y" }}</small>
+                        </article>
+                    {% empty %}
+                        <p class="recent-empty">No members have been added yet.</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </aside>
+    </section>
+</main>
+
+<script>
+    (() => {
+        const categoryInput = document.getElementById("{{ form.member_category.id_for_label }}");
+        const buttons = document.querySelectorAll("[data-member-category-value]");
+        const segmentedControl = document.querySelector("[data-member-category]");
+        const playerOnlyFields = document.querySelectorAll("[data-player-only]");
+        const photoInput = document.getElementById("{{ form.profile_photo.id_for_label }}");
+        const previewWrap = document.querySelector("[data-upload-preview-wrap]");
+        const previewImage = document.querySelector("[data-upload-preview]");
+        const uploadPlaceholder = document.querySelector("[data-upload-placeholder]");
+        const uploadLabel = document.querySelector("[data-upload-label]");
+
+        const syncPhotoPreview = () => {
+            if (!photoInput || !previewWrap || !previewImage || !uploadPlaceholder) {
+                return;
+            }
+
+            const file = photoInput.files && photoInput.files[0];
+            if (!file) {
+                previewImage.removeAttribute("src");
+                previewWrap.classList.add("is-hidden");
+                uploadPlaceholder.classList.remove("is-hidden");
+                if (uploadLabel) {
+                    uploadLabel.textContent = "Upload profile photo";
+                }
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.addEventListener("load", (event) => {
+                previewImage.src = event.target?.result || "";
+                previewWrap.classList.remove("is-hidden");
+                uploadPlaceholder.classList.add("is-hidden");
+            });
+            reader.readAsDataURL(file);
+        };
+
+        const syncButtons = () => {
+            if (!categoryInput) {
+                return;
+            }
+            buttons.forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.memberCategoryValue === categoryInput.value);
+            });
+
+            if (segmentedControl) {
+                segmentedControl.dataset.active = categoryInput.value === "staff" ? "staff" : "player";
+            }
+
+            const isPlayer = categoryInput.value === "player";
+            playerOnlyFields.forEach((field) => {
+                field.classList.toggle("is-hidden", !isPlayer);
+            });
+        };
+
+        buttons.forEach((button) => {
+            button.addEventListener("click", () => {
+                if (!categoryInput) {
+                    return;
+                }
+                categoryInput.value = button.dataset.memberCategoryValue;
+                syncButtons();
+            });
+        });
+
+        syncButtons();
+        if (photoInput) {
+            photoInput.addEventListener("change", syncPhotoPreview);
+            syncPhotoPreview();
+        }
+    })();
+</script>
+{% endblock %}

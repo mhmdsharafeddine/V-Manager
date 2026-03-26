@@ -10,7 +10,6 @@ User = get_user_model()
 class RegistrationForm(forms.Form):
     CLUB_INFO_ROLES = {
         AccountProfile.ROLE_MANAGER,
-        AccountProfile.ROLE_STAFF,
     }
     CHILD_NAME_ROLE = AccountProfile.ROLE_PARENT
 

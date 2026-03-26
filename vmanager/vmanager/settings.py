@@ -128,13 +128,17 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'screenshots',
 ]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 JWT_ACCESS_COOKIE_NAME = "vm_access_token"
 JWT_REFRESH_COOKIE_NAME = "vm_refresh_token"
 JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
 JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
+LOGIN_URL = "/auth/login/"
+LOGIN_REDIRECT_URL = "/"
 
-EMAIL_BACKEND ="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND ="django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = "smtp.office365.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True

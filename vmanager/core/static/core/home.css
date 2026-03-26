@@ -419,6 +419,7 @@ a {
 
 .feature-card {
     overflow: hidden;
+    scroll-margin-top: 120px;
 }
 
 .feature-card img {

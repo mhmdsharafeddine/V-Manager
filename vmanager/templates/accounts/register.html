@@ -78,7 +78,18 @@
                         </svg>
                     </button>
                 </div>
-                <div class="auth-hint">At least 8 characters</div>
+                <div class="auth-password-feedback" data-password-feedback data-target="{{ form.password.id_for_label }}">
+                    <div class="auth-password-strength" data-strength="weak">
+                        <div class="auth-password-strength-head">
+                            <span>Password strength</span>
+                            <span class="auth-password-strength-label" data-password-strength-label>Too short</span>
+                        </div>
+                        <div class="auth-password-strength-track" aria-hidden="true">
+                            <div class="auth-password-strength-fill" data-password-strength-fill></div>
+                        </div>
+                    </div>
+                    <div class="auth-hint" data-password-hint>Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
+                </div>
                 {{ form.password.errors }}
             </div>
 
@@ -88,7 +99,7 @@
                 {{ form.role.errors }}
             </div>
 
-            <div class="auth-field auth-conditional {% if form.role.value != 'manager' and form.role.value != 'staff' %}is-hidden{% endif %}" data-role-field="club-info">
+            <div class="auth-field auth-conditional {% if form.role.value != 'manager' %}is-hidden{% endif %}" data-role-field="club-info">
                 <label for="{{ form.club_name.id_for_label }}">{{ form.club_name.label }}</label>
                 {{ form.club_name }}
                 {{ form.club_name.errors }}
@@ -111,8 +122,88 @@
         const roleSelect = document.getElementById("{{ form.role.id_for_label }}");
         const clubFields = document.querySelectorAll('[data-role-field="club-info"]');
         const childFields = document.querySelectorAll('[data-role-field="child-info"]');
-        const rolesThatNeedClubInfo = new Set(["manager", "staff"]);
+        const rolesThatNeedClubInfo = new Set(["manager"]);
         const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
+        const passwordFeedbackItems = document.querySelectorAll("[data-password-feedback]");
+
+        const evaluatePassword = (value) => {
+            const checks = [
+                value.length >= 8,
+                /[a-z]/.test(value),
+                /[A-Z]/.test(value),
+                /\d/.test(value),
+                /[^A-Za-z0-9]/.test(value),
+            ];
+            const score = checks.filter(Boolean).length;
+
+            if (value.length < 8) {
+                return {
+                    width: 18,
+                    level: "weak",
+                    label: "Too short",
+                    hint: "Password must be at least 8 characters long.",
+                };
+            }
+
+            if (score <= 2) {
+                return {
+                    width: 35,
+                    level: "weak",
+                    label: "Weak",
+                    hint: "Add uppercase letters, numbers, or symbols to strengthen it.",
+                };
+            }
+
+            if (score === 3) {
+                return {
+                    width: 58,
+                    level: "fair",
+                    label: "Fair",
+                    hint: "Good start. Add one more type of character for a stronger password.",
+                };
+            }
+
+            if (score === 4) {
+                return {
+                    width: 80,
+                    level: "good",
+                    label: "Good",
+                    hint: "This password looks solid.",
+                };
+            }
+
+            return {
+                width: 100,
+                level: "strong",
+                label: "Strong",
+                hint: "Excellent password strength.",
+            };
+        };
+
+        passwordFeedbackItems.forEach((item) => {
+            const target = document.getElementById(item.dataset.target);
+            const fill = item.querySelector("[data-password-strength-fill]");
+            const label = item.querySelector("[data-password-strength-label]");
+            const hint = item.querySelector("[data-password-hint]");
+
+            if (!target || !fill || !label || !hint) {
+                return;
+            }
+
+            const syncPasswordStrength = () => {
+                const result = evaluatePassword(target.value);
+                const strengthRoot = item.querySelector(".auth-password-strength");
+                if (strengthRoot) {
+                    strengthRoot.dataset.strength = result.level;
+                }
+                fill.style.width = `${result.width}%`;
+                label.textContent = result.label;
+                hint.textContent = result.hint;
+            };
+
+            syncPasswordStrength();
+            target.addEventListener("input", syncPasswordStrength);
+        });
 
         if (roleSelect) {
             const syncRoleFields = () => {

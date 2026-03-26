@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}V-Manager{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'core/base.css' %}?v=4">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block base_body_class %}layout-body{% endblock %} {% block body_class %}{% endblock %}" {% block body_attributes %}{% endblock %}>
+    {% block navbar %}
+        {% include "partials/navbar.html" %}
+    {% endblock %}
+
+    <div class="{% block page_wrapper_class %}layout-page{% endblock %}">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% block footer %}
+        {% include "partials/footer.html" %}
+    {% endblock %}
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

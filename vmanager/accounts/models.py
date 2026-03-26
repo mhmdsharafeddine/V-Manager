@@ -30,6 +30,11 @@ class AccountProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     club_name = models.CharField(max_length=150, blank=True)
     child_name = models.CharField(max_length=150, blank=True)
+    phone_number = models.CharField(max_length=40, blank=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    jersey_number = models.PositiveIntegerField(blank=True, null=True)
+    position = models.CharField(max_length=120, blank=True)
+    profile_photo = models.FileField(upload_to="profile_photos/", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -38,6 +43,12 @@ class AccountProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.email} ({self.get_role_display()})"
+
+    @property
+    def initials(self):
+        first = (self.user.first_name or "")[:1]
+        last = (self.user.last_name or "")[:1]
+        return (first + last).upper() or (self.user.email[:2].upper())
 
 
 class EmailVerificationCode(models.Model):

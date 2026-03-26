@@ -1,51 +1,18 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}V-Manager Auth{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'accounts/auth.css' %}">
-</head>
-<body class="auth-body {% block body_class %}{% endblock %}">
-    <div class="auth-page">
-        {% block auth_content %}{% endblock %}
-    </div>
 
-    <footer class="auth-footer">
-        <div class="auth-footer-inner">
-            <div class="auth-footer-brand">
-                <div class="auth-footer-logo">
-                    <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
-                    <span>V-Manager</span>
-                </div>
-                <p>The complete solution for volleyball club management.</p>
-            </div>
+{% block title %}V-Manager Auth{% endblock %}
 
-            <div class="auth-footer-links">
-                <h3>Product</h3>
-                <a href="{% url 'home' %}#features">Features</a>
-                <a href="{% url 'home' %}#pricing">Pricing</a>
-                <a href="{% url 'home' %}#testimonials">Testimonials</a>
-                <a href="{% url 'home' %}">Updates</a>
-            </div>
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'accounts/auth.css' %}?v=2">
+{% endblock %}
 
-            <div class="auth-footer-links">
-                <h3>Company</h3>
-                <a href="{% url 'home' %}">About</a>
-                <a href="{% url 'home' %}">Blog</a>
-                <a href="{% url 'home' %}">Careers</a>
-                <a href="{% url 'home' %}#contact">Contact</a>
-            </div>
+{% block base_body_class %}auth-body{% endblock %}
 
-            <div class="auth-footer-links">
-                <h3>Support</h3>
-                <a href="{% url 'home' %}">Help Center</a>
-                <a href="{% url 'home' %}">Documentation</a>
-                <a href="{% url 'home' %}">API Reference</a>
-                <a href="{% url 'home' %}">Community</a>
-            </div>
-        </div>
-    </footer>
-</body>
-</html>
+{% block navbar %}{% endblock %}
+
+{% block page_wrapper_class %}auth-page{% endblock %}
+
+{% block content %}
+    {% block auth_content %}{% endblock %}
+{% endblock %}

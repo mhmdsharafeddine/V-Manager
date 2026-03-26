@@ -1,16 +1,18 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V-Manager | Volleyball Club Management</title>
+
+{% block title %}V-Manager | Volleyball Club Management{% endblock %}
+
+{% block extra_css %}
     <link rel="stylesheet" href="{% static 'core/home.css' %}">
-</head>
-<body
+{% endblock %}
+
+{% block body_attributes %}
     data-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
     data-remembered="{% if request.COOKIES.vm_remember_me == '1' %}1{% else %}0{% endif %}"
->
+{% endblock %}
+
+{% block content %}
     {% if messages %}
         <div class="toast-stack" aria-live="polite" aria-atomic="true">
             {% for message in messages %}
@@ -18,36 +20,6 @@
             {% endfor %}
         </div>
     {% endif %}
-
-    <header class="site-header">
-        <div class="container nav-shell">
-            <a class="brand" href="#home" aria-label="V-Manager home">
-                <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
-                <span>V-Manager</span>
-            </a>
-
-            <nav class="site-nav" aria-label="Primary navigation">
-                <a href="#home">Home</a>
-                <a href="#features">Features</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#testimonials">Testimonials</a>
-                <a href="#contact">Contact</a>
-            </nav>
-
-            <div class="nav-actions">
-                {% if request.user.is_authenticated %}
-                    <span class="nav-user">Hi, {{ request.user.first_name|default:request.user.username }}</span>
-                    <form method="post" action="{% url 'accounts:logout' %}" class="nav-logout-form">
-                        {% csrf_token %}
-                        <button type="submit" class="button button-outline nav-logout-button">Log Out</button>
-                    </form>
-                {% else %}
-                    <a class="button button-outline" href="{% url 'accounts:login' %}">Sign In</a>
-                    <a class="button button-accent" href="{% url 'accounts:register' %}">Get Started</a>
-                {% endif %}
-            </div>
-        </div>
-    </header>
 
     <main>
         <section class="hero section-pattern" id="home">
@@ -85,60 +57,60 @@
                 </div>
 
                 <div class="feature-grid">
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-team-management">
                         <img src="{% static 'Image.png' %}" alt="Team management dashboard">
                         <div class="feature-card-body">
                             <h3>Team Management</h3>
                             <p>Manage players, coaches, and staff with comprehensive profiles, roles, and permissions.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="{% url 'team_management:roster' %}">View Feature</a>
                         </div>
                     </article>
 
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-schedule">
                         <img src="{% static 'Image2.png' %}" alt="Schedule and events calendar interface">
                         <div class="feature-card-body">
                             <h3>Schedule &amp; Events</h3>
                             <p>Plan practices, games, and tournaments with integrated calendar and automated reminders.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="#feature-schedule">View Feature</a>
                         </div>
                     </article>
 
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-performance">
                         <img src="{% static 'Image3.png' %}" alt="Performance tracking analytics">
                         <div class="feature-card-body">
                             <h3>Performance Tracking</h3>
                             <p>Track player stats, game results, and team performance metrics in real-time.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="#feature-performance">View Feature</a>
                         </div>
                     </article>
 
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-readiness">
                         <span class="feature-badge">New!</span>
                         <img src="{% static 'Image4.png' %}" alt="Match readiness score analytics">
                         <div class="feature-card-body">
                             <h3>Match Readiness Score</h3>
                             <p>An ML-based score that predicts team readiness using fitness, injury, and performance data.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="#feature-readiness">View Feature</a>
                         </div>
                     </article>
 
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-ai">
                         <span class="feature-badge">New!</span>
                         <img src="{% static 'Image5.png' %}" alt="AI evolution analytics hub">
                         <div class="feature-card-body">
                             <h3>AI Evolution Hub</h3>
                             <p>Track player growth and uncover personalized improvement paths with clear analytics.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="#feature-ai">View Feature</a>
                         </div>
                     </article>
 
-                    <article class="feature-card">
+                    <article class="feature-card" id="feature-communication">
                         <span class="feature-badge feature-badge-wide">Enhanced!</span>
                         <img src="{% static 'Image6.png' %}" alt="Communication hub with announcements">
                         <div class="feature-card-body">
                             <h3>Communication Hub</h3>
                             <p>Keep everyone connected with announcements, chat, and notification workflows.</p>
-                            <a class="button button-primary button-block" href="#contact">View Feature</a>
+                            <a class="button button-primary button-block" href="#feature-communication">View Feature</a>
                         </div>
                     </article>
                 </div>
@@ -324,42 +296,9 @@
             </div>
         </section>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">
-        <div class="container footer-grid">
-            <div class="footer-brand">
-                <div class="footer-brand-mark">
-                    <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
-                    <span>V-Manager</span>
-                </div>
-                <p>The complete solution for volleyball club management.</p>
-            </div>
-
-            <div>
-                <h3>Product</h3>
-                <a href="#features">Features</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#testimonials">Testimonials</a>
-                <a href="#contact">Updates</a>
-            </div>
-
-            <div>
-                <h3>Company</h3>
-                <a href="#home">About</a>
-                <a href="#testimonials">Blog</a>
-                <a href="#pricing">Careers</a>
-                <a href="#contact">Contact</a>
-            </div>
-
-            <div>
-                <h3>Support</h3>
-                <a href="#contact">Help Center</a>
-                <a href="#contact">Documentation</a>
-                <a href="#contact">API Reference</a>
-                <a href="#contact">Community</a>
-            </div>
-        </div>
-    </footer>
+{% block extra_js %}
     <script>
         (() => {
             const transientKey = "vm_transient_auth";
@@ -397,5 +336,4 @@
             }, 2600);
         })();
     </script>
-</body>
-</html>
+{% endblock %}

@@ -1,6 +1,6 @@
 :root {
-    --auth-bg: #fffdf7;
-    --auth-bg-soft: rgba(255, 253, 247, 0.9);
+    --auth-bg: #edfafe;
+    --auth-bg-soft: rgba(237, 250, 254, 0.9);
     --auth-surface: rgba(255, 255, 255, 0.96);
     --auth-text: #11141b;
     --auth-muted: #6b7176;
@@ -39,7 +39,7 @@ a {
 .auth-body {
     min-height: 100vh;
     background:
-        linear-gradient(var(--auth-bg-soft), rgba(255, 253, 247, 0.93)),
+        linear-gradient(var(--auth-bg-soft), rgba(237, 250, 254, 0.93)),
         url("/static/Background.png") center/420px auto repeat;
 }
 
@@ -67,6 +67,12 @@ a {
     width: min(760px, calc(100vw - 32px));
     padding-top: 40px;
     padding-bottom: 88px;
+}
+
+.auth-shell-stack {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
 }
 
 .auth-brand {
@@ -241,6 +247,70 @@ a {
     color: rgba(80, 88, 94, 0.7);
 }
 
+.auth-password-feedback {
+    display: grid;
+    gap: 6px;
+}
+
+.auth-password-strength {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+}
+
+.auth-password-strength-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: rgba(80, 88, 94, 0.78);
+}
+
+.auth-password-strength-label {
+    font-weight: 800;
+    color: var(--auth-primary-dark);
+}
+
+.auth-password-strength-track {
+    display: block;
+    width: 100%;
+    min-width: 100%;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 1px solid rgba(17, 20, 27, 0.09);
+    background: linear-gradient(90deg, rgba(17, 20, 27, 0.08), rgba(17, 20, 27, 0.14));
+    box-shadow: inset 0 1px 2px rgba(17, 20, 27, 0.08);
+}
+
+.auth-password-strength-fill {
+    display: block;
+    width: 0;
+    min-width: 6px;
+    height: 100%;
+    border-radius: inherit;
+    background: #dc5d73;
+    transition: width 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.auth-password-strength[data-strength="weak"] .auth-password-strength-fill {
+    background: #dc5d73;
+}
+
+.auth-password-strength[data-strength="fair"] .auth-password-strength-fill {
+    background: #f0a533;
+}
+
+.auth-password-strength[data-strength="good"] .auth-password-strength-fill {
+    background: #3eb870;
+}
+
+.auth-password-strength[data-strength="strong"] .auth-password-strength-fill {
+    background: var(--auth-primary);
+    box-shadow: 0 0 12px rgba(33, 166, 199, 0.26);
+}
+
 .auth-code-input {
     min-height: 54px;
     text-align: center;
@@ -332,6 +402,10 @@ a {
 }
 
 .auth-secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
     min-height: 42px;
     padding: 0 18px;
     border: 1px solid rgba(33, 166, 199, 0.26);
@@ -339,6 +413,8 @@ a {
     background: rgba(33, 166, 199, 0.08);
     color: var(--auth-primary-dark);
     font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
     cursor: pointer;
     transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
 }

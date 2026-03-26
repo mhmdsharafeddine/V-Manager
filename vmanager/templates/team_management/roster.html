@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Team Roster | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=7">
+{% endblock %}
+
+{% block body_class %}team-page{% endblock %}
+
+{% block content %}
+<main class="team-shell">
+    <section class="team-hero">
+        <div class="container">
+            <h1>Easy Team Management</h1>
+            <p>Manage your entire team with an intuitive interface. Assign roles, set permissions, and keep everything organized in one place.</p>
+        </div>
+    </section>
+
+    <section class="container team-summary-grid">
+        {% for card in summary_cards %}
+            <article class="summary-card {{ card.class_name }}">
+                <span class="summary-pill">{{ card.label }}</span>
+                <strong>{{ card.count }}</strong>
+                <p>{{ card.caption }}</p>
+            </article>
+        {% empty %}
+            <article class="summary-card summary-card-blue">
+                <span class="summary-pill">Roster</span>
+                <strong>0</strong>
+                <p>No team members yet</p>
+            </article>
+        {% endfor %}
+    </section>
+
+    <section class="container roster-panel">
+        <div class="roster-panel-head">
+            <div class="roster-panel-copy">
+                <h2>Team Roster</h2>
+                <p>Manage all team members, roles, and permissions.</p>
+                <div class="roster-filter-toggle" data-active="{{ status_filter }}">
+                    <span class="roster-filter-indicator" aria-hidden="true"></span>
+                    <a
+                        href="?status=all{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        data-filter-link="all"
+                        class="roster-filter-option {% if status_filter == 'all' %}is-active{% endif %}"
+                    >
+                        All Members
+                    </a>
+                    <a
+                        href="?status=active{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        data-filter-link="active"
+                        class="roster-filter-option {% if status_filter == 'active' %}is-active{% endif %}"
+                    >
+                        Active Members
+                    </a>
+                    <a
+                        href="?status=inactive{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        data-filter-link="inactive"
+                        class="roster-filter-option {% if status_filter == 'inactive' %}is-active{% endif %}"
+                    >
+                        Inactive Members
+                    </a>
+                </div>
+            </div>
+
+            <div class="roster-panel-actions">
+                <form method="get" class="roster-search-form">
+                    <input type="search" name="q" value="{{ query }}" class="roster-search" placeholder="Search members...">
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                </form>
+                {% if can_manage %}
+                    <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Member</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if members %}
+            <div class="roster-list">
+                {% for member in members %}
+                    <article class="roster-card">
+                        <div class="roster-card-head">
+                            <div class="member-identify">
+                                <div class="member-avatar">
+                                    {% if member.avatar_url %}
+                                        <img src="{{ member.avatar_url }}" alt="{{ member.user.get_full_name }}">
+                                    {% else %}
+                                        <span>{{ member.initials }}</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="member-title-row">
+                                        <h3>{{ member.display_name }}</h3>
+                                        <span class="member-badge {{ member.badge_class }}">{{ member.display_title }}</span>
+                                        <span class="member-status {% if member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
+                                    </div>
+                                    <p>{{ member.subtitle }}{% if member.user.email %} • {{ member.user.email }}{% endif %}</p>
+                                </div>
+                            </div>
+
+                            {% if can_manage %}
+                                <a href="{% url 'team_management:edit_member' member.membership.id %}" class="team-secondary-button">Edit</a>
+                            {% endif %}
+                        </div>
+
+                        <div class="member-permissions">
+                            <span>Permissions:</span>
+                            <div class="permission-list">
+                                {% for permission in member.permissions %}
+                                    <span class="permission-pill">{{ permission }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="team-empty-state">
+                <h3>No roster members yet</h3>
+                <p>
+                    {% if can_manage %}
+                        Start by adding players or staff members who already have an account and are not assigned to another team.
+                    {% else %}
+                        You are not assigned to a team roster yet.
+                    {% endif %}
+                </p>
+                {% if can_manage %}
+                    <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Your First Member</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+</main>
+
+<script>
+    (() => {
+        const filterToggle = document.querySelector(".roster-filter-toggle");
+        if (!filterToggle) {
+            return;
+        }
+
+        const filterLinks = filterToggle.querySelectorAll("[data-filter-link]");
+        let isNavigating = false;
+
+        filterLinks.forEach((link) => {
+            link.addEventListener("click", (event) => {
+                const target = link.dataset.filterLink;
+                if (!target || filterToggle.dataset.active === target || isNavigating) {
+                    return;
+                }
+
+                event.preventDefault();
+                isNavigating = true;
+                filterToggle.dataset.active = target;
+
+                filterLinks.forEach((item) => {
+                    item.classList.toggle("is-active", item === link);
+                });
+
+                window.setTimeout(() => {
+                    window.location.href = link.href;
+                }, 220);
+            });
+        });
+    })();
+</script>
+{% endblock %}

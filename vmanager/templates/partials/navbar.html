@@ -1,0 +1,43 @@
+{% load static %}
+<header class="site-header">
+    <div class="container nav-shell">
+        <a class="brand" href="{% url 'home' %}#home" aria-label="V-Manager home">
+            <img src="{% static 'Logo.png' %}" alt="V-Manager logo">
+            <span>V-Manager</span>
+        </a>
+
+        <nav class="site-nav" aria-label="Primary navigation">
+            <a href="{% url 'home' %}#home">Home</a>
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'team_management:roster' %}">Roster</a>
+            {% endif %}
+            <div class="site-nav-item has-dropdown">
+                <a href="{% url 'home' %}#features" class="site-nav-link">Features</a>
+                <div class="nav-dropdown-menu" aria-label="Feature links">
+                    <a href="{% url 'team_management:roster' %}">Team Management</a>
+                    <a href="{% url 'home' %}#feature-schedule">Schedule &amp; Events</a>
+                    <a href="{% url 'home' %}#feature-performance">Performance Tracking</a>
+                    <a href="{% url 'home' %}#feature-readiness">Match Readiness Score</a>
+                    <a href="{% url 'home' %}#feature-ai">AI Evolution Hub</a>
+                    <a href="{% url 'home' %}#feature-communication">Communication Hub</a>
+                </div>
+            </div>
+            <a href="{% url 'home' %}#pricing">Pricing</a>
+            <a href="{% url 'home' %}#testimonials">Testimonials</a>
+            <a href="{% url 'home' %}#contact">Contact</a>
+        </nav>
+
+        <div class="nav-actions">
+            {% if request.user.is_authenticated %}
+                <span class="nav-user">Hi, {{ request.user.first_name|default:request.user.username }}</span>
+                <form method="post" action="{% url 'accounts:logout' %}" class="nav-logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="button button-outline nav-logout-button">Log Out</button>
+                </form>
+            {% else %}
+                <a class="button button-outline" href="{% url 'accounts:login' %}">Sign In</a>
+                <a class="button button-accent" href="{% url 'accounts:register' %}">Get Started</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
