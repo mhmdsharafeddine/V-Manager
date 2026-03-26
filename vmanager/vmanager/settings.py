@@ -138,11 +138,12 @@ JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
 LOGIN_URL = "/auth/login/"
 LOGIN_REDIRECT_URL = "/"
 
-EMAIL_BACKEND ="django.core.mail.backends.console.EmailBackend"
-EMAIL_HOST = "smtp.office365.com"
+## SWITCH BETWEEN SMTP AND CONSOLE BACKEND FOR TESTING
+EMAIL_BACKEND ="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "V_Manager@outlook.com"
-EMAIL_HOST_PASSWORD = "ropildsvsaugfcse"
-DEFAULT_FROM_EMAIL = "V-Manager <V_Manager@outlook.com>"
+EMAIL_HOST_USER = "VManager430@gmail.com"
+EMAIL_HOST_PASSWORD = "pdfh vrca axzd xoqb"
+DEFAULT_FROM_EMAIL = "V-Manager <VManager430@gmail.com>"
 PASSWORD_RESET_TIMEOUT = 3600

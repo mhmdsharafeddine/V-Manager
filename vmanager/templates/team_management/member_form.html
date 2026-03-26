@@ -160,8 +160,8 @@
         <aside class="member-side-card">
             {% if mode == "edit" and editing_member %}
                 <h3>Editing Member</h3>
-                <article class="recent-member-card">
-                    <div class="recent-member-head">
+                <article class="recent-member-card editing-member-card">
+                    <div class="recent-member-head editing-member-head">
                         <div class="member-avatar member-avatar-small">
                             {% if editing_member.avatar_url %}
                                 <img src="{{ editing_member.avatar_url }}" alt="{{ editing_member.user.get_full_name }}">
@@ -169,12 +169,12 @@
                                 <span>{{ editing_member.initials }}</span>
                             {% endif %}
                         </div>
-                        <div>
+                        <div class="editing-member-copy">
                             <strong>{{ editing_member.display_name }}</strong>
                             <p>{{ editing_member.display_title }}</p>
+                            <span class="member-status {% if editing_member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ editing_member.status_label }}</span>
                         </div>
                     </div>
-                    <span class="member-status {% if editing_member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ editing_member.status_label }}</span>
                 </article>
             {% else %}
                 <h3>Recently added</h3>

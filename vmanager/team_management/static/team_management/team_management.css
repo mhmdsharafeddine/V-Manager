@@ -1,6 +1,6 @@
 .team-page {
     background:
-        linear-gradient(rgba(237, 250, 254, 0.92), rgba(237, 250, 254, 0.94)),
+        linear-gradient(rgba(237, 250, 254, 0.83), rgba(237, 250, 254, 0.83)),
         url("/static/Background.png") left top / 390px auto repeat;
 }
 
@@ -684,6 +684,11 @@
     transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
 }
 
+.recent-member-card > .member-status {
+    justify-self: start;
+    width: auto;
+}
+
 .recent-member-card:hover,
 .recent-member-card:focus-within {
     transform: translateY(-4px);
@@ -701,6 +706,29 @@
 .recent-member-head strong {
     display: block;
     margin-bottom: 4px;
+}
+
+.editing-member-card {
+    align-items: start;
+}
+
+.editing-member-head {
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.editing-member-copy {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+    justify-items: start;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.editing-member-copy .member-status {
+    justify-self: start;
+    margin-top: 2px;
 }
 
 .team-messages,
