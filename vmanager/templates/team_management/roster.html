@@ -4,13 +4,21 @@
 {% block title %}Team Roster | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=11">
 {% endblock %}
 
 {% block body_class %}team-page{% endblock %}
 
 {% block content %}
 <main class="team-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <section class="team-hero">
         <div class="container">
             <h1>Easy Team Management</h1>
@@ -42,21 +50,21 @@
                 <div class="roster-filter-toggle" data-active="{{ status_filter }}">
                     <span class="roster-filter-indicator" aria-hidden="true"></span>
                     <a
-                        href="?status=all{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        href="?status=all{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;sort={{ sort_filter }}&amp;member_type={{ member_type_filter }}"
                         data-filter-link="all"
                         class="roster-filter-option {% if status_filter == 'all' %}is-active{% endif %}"
                     >
                         All Members
                     </a>
                     <a
-                        href="?status=active{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        href="?status=active{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;sort={{ sort_filter }}&amp;member_type={{ member_type_filter }}"
                         data-filter-link="active"
                         class="roster-filter-option {% if status_filter == 'active' %}is-active{% endif %}"
                     >
                         Active Members
                     </a>
                     <a
-                        href="?status=inactive{% if query %}&amp;q={{ query|urlencode }}{% endif %}"
+                        href="?status=inactive{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;sort={{ sort_filter }}&amp;member_type={{ member_type_filter }}"
                         data-filter-link="inactive"
                         class="roster-filter-option {% if status_filter == 'inactive' %}is-active{% endif %}"
                     >
@@ -66,13 +74,45 @@
             </div>
 
             <div class="roster-panel-actions">
-                <form method="get" class="roster-search-form">
-                    <input type="search" name="q" value="{{ query }}" class="roster-search" placeholder="Search members...">
-                    <input type="hidden" name="status" value="{{ status_filter }}">
-                </form>
-                {% if can_manage %}
-                    <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Member</a>
-                {% endif %}
+                <div class="roster-actions-shell">
+                    <div class="roster-actions-top">
+                        <form method="get" class="roster-search-form">
+                            <input type="search" name="q" value="{{ query }}" class="roster-search" placeholder="Search members...">
+                            <input type="hidden" name="status" value="{{ status_filter }}">
+                            <input type="hidden" name="sort" value="{{ sort_filter }}">
+                            <input type="hidden" name="member_type" value="{{ member_type_filter }}">
+                        </form>
+                        {% if can_manage %}
+                            <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Member</a>
+                        {% endif %}
+                    </div>
+
+                    <form method="get" class="roster-dropdown-filters">
+                        <input type="hidden" name="q" value="{{ query }}">
+                        <input type="hidden" name="status" value="{{ status_filter }}">
+
+                        <label class="roster-filter-field">
+                            <span>Sort By</span>
+                            <select name="sort" class="roster-select" onchange="this.form.submit()">
+                                <option value="alphabetical" {% if sort_filter == "alphabetical" %}selected{% endif %}>Alphabetical</option>
+                                <option value="newest" {% if sort_filter == "newest" %}selected{% endif %}>Newest Added</option>
+                                <option value="oldest" {% if sort_filter == "oldest" %}selected{% endif %}>Oldest Added</option>
+                            </select>
+                        </label>
+
+                        <label class="roster-filter-field">
+                            <span>Show</span>
+                            <select name="member_type" class="roster-select" onchange="this.form.submit()">
+                                <option value="all" {% if member_type_filter == "all" %}selected{% endif %}>All Roles</option>
+                                <option value="players" {% if member_type_filter == "players" %}selected{% endif %}>Players</option>
+                                <option value="captains" {% if member_type_filter == "captains" %}selected{% endif %}>Captains</option>
+                                <option value="coaches" {% if member_type_filter == "coaches" %}selected{% endif %}>Coaches</option>
+                                <option value="staff" {% if member_type_filter == "staff" %}selected{% endif %}>Staff</option>
+                                <option value="managers" {% if member_type_filter == "managers" %}selected{% endif %}>Managers</option>
+                            </select>
+                        </label>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -100,7 +140,17 @@
                             </div>
 
                             {% if can_manage %}
-                                <a href="{% url 'team_management:edit_member' member.membership.id %}" class="team-secondary-button">Edit</a>
+                                <div class="member-card-actions">
+                                    {% if member.can_edit %}
+                                        <a href="{% url 'team_management:edit_member' member.membership.id %}" class="team-secondary-button">Edit</a>
+                                    {% endif %}
+                                    {% if member.can_delete %}
+                                        <form method="post" action="{% url 'team_management:delete_member' member.membership.id %}" class="member-delete-form">
+                                            {% csrf_token %}
+                                            <button type="submit" class="team-secondary-button team-danger-button">Delete</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -135,6 +185,18 @@
 
 <script>
     (() => {
+        const toasts = document.querySelectorAll(".toast-message");
+        if (toasts.length) {
+            window.setTimeout(() => {
+                toasts.forEach((toast, index) => {
+                    window.setTimeout(() => {
+                        toast.classList.add("toast-hide");
+                        window.setTimeout(() => toast.remove(), 320);
+                    }, index * 120);
+                });
+            }, 2600);
+        }
+
         const filterToggle = document.querySelector(".roster-filter-toggle");
         if (!filterToggle) {
             return;

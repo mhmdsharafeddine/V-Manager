@@ -204,6 +204,12 @@ a {
     transform: translateY(-2px);
 }
 
+.button-disabled {
+    opacity: 0.58;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
 .button-primary {
     color: #ffffff;
     background: linear-gradient(90deg, #199dbf, #24aecb);

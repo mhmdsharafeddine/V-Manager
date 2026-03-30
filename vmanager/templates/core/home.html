@@ -62,7 +62,11 @@
                         <div class="feature-card-body">
                             <h3>Team Management</h3>
                             <p>Manage players, coaches, and staff with comprehensive profiles, roles, and permissions.</p>
-                            <a class="button button-primary button-block" href="{% url 'team_management:roster' %}">View Feature</a>
+                            {% if request.user.is_authenticated and not can_access_team_features %}
+                                <span class="button button-primary button-block button-disabled" aria-disabled="true">Inactive Access</span>
+                            {% else %}
+                                <a class="button button-primary button-block" href="{% url 'team_management:roster' %}">View Feature</a>
+                            {% endif %}
                         </div>
                     </article>
 

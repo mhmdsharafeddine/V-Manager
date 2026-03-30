@@ -4,7 +4,7 @@
 {% block title %}{{ page_title }} | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=10">
 {% endblock %}
 
 {% block body_class %}team-page{% endblock %}
@@ -144,10 +144,20 @@
                 </div>
 
                 {% if mode == "edit" %}
-                    <label class="active-toggle">
-                        {{ form.is_active }}
-                        <span>Active member</span>
-                    </label>
+                    <div class="active-toggle-card">
+                        <label class="active-toggle" for="{{ form.is_active.id_for_label }}">
+                            {{ form.is_active }}
+                            <span class="active-toggle-copy">
+                                <strong data-active-toggle-label>Active member</strong>
+                                <small data-active-toggle-hint>
+                                    This member appears in the Active Members filter and counts in active team totals.
+                                </small>
+                            </span>
+                        </label>
+                        <p class="team-field-hint" data-active-toggle-summary>
+                            Turn this off to keep the member on the roster but move them to Inactive Members.
+                        </p>
+                    </div>
                 {% endif %}
 
                 <div class="member-form-actions">
@@ -172,7 +182,7 @@
                         <div class="editing-member-copy">
                             <strong>{{ editing_member.display_name }}</strong>
                             <p>{{ editing_member.display_title }}</p>
-                            <span class="member-status {% if editing_member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ editing_member.status_label }}</span>
+                            <span class="member-status {% if editing_member.membership.is_active %}is-active{% else %}is-inactive{% endif %}" data-editing-member-status>{{ editing_member.status_label }}</span>
                         </div>
                     </div>
                 </article>
@@ -210,6 +220,11 @@
         const previewImage = document.querySelector("[data-upload-preview]");
         const uploadPlaceholder = document.querySelector("[data-upload-placeholder]");
         const uploadLabel = document.querySelector("[data-upload-label]");
+        const activeInput = document.getElementById("{{ form.is_active.id_for_label }}");
+        const activeToggleLabel = document.querySelector("[data-active-toggle-label]");
+        const activeToggleHint = document.querySelector("[data-active-toggle-hint]");
+        const activeToggleSummary = document.querySelector("[data-active-toggle-summary]");
+        const editingMemberStatus = document.querySelector("[data-editing-member-status]");
 
         const syncPhotoPreview = () => {
             if (!photoInput || !previewWrap || !previewImage || !uploadPlaceholder) {
@@ -254,6 +269,36 @@
             });
         };
 
+        const syncActiveState = () => {
+            if (!activeInput) {
+                return;
+            }
+
+            const isActive = activeInput.checked;
+
+            if (activeToggleLabel) {
+                activeToggleLabel.textContent = isActive ? "Active member" : "Inactive member";
+            }
+
+            if (activeToggleHint) {
+                activeToggleHint.textContent = isActive
+                    ? "This member appears in the Active Members filter and counts in active team totals."
+                    : "This member stays on the roster, but shows under Inactive Members and is excluded from active team totals.";
+            }
+
+            if (activeToggleSummary) {
+                activeToggleSummary.textContent = isActive
+                    ? "Use this when the member should count as part of the current active squad."
+                    : "Use this when the member should remain on record without counting as an active squad member.";
+            }
+
+            if (editingMemberStatus) {
+                editingMemberStatus.textContent = isActive ? "Active" : "Inactive";
+                editingMemberStatus.classList.toggle("is-active", isActive);
+                editingMemberStatus.classList.toggle("is-inactive", !isActive);
+            }
+        };
+
         buttons.forEach((button) => {
             button.addEventListener("click", () => {
                 if (!categoryInput) {
@@ -265,9 +310,13 @@
         });
 
         syncButtons();
+        syncActiveState();
         if (photoInput) {
             photoInput.addEventListener("change", syncPhotoPreview);
             syncPhotoPreview();
+        }
+        if (activeInput) {
+            activeInput.addEventListener("change", syncActiveState);
         }
     })();
 </script>

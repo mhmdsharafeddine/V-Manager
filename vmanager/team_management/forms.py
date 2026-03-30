@@ -202,7 +202,8 @@ class TeamMemberForm(forms.Form):
         membership = self.membership or TeamMembership(user=user, team=team, added_by=added_by)
         membership.team = team
         membership.member_title = self.cleaned_data["member_title"]
-        membership.is_active = self.cleaned_data.get("is_active", True)
+        # New roster members should always start active; the active toggle is only used when editing.
+        membership.is_active = self.cleaned_data.get("is_active", True) if self.membership else True
         if membership.added_by_id is None:
             membership.added_by = added_by
         membership.save()

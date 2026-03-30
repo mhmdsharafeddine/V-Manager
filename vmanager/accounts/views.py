@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -130,7 +131,13 @@ def register_view(request):
 
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        user = form.save()
+        try:
+            user = form.save()
+        except ValidationError as exc:
+            form.add_error("email", str(exc))
+            user = None
+        if user is None:
+            return render(request, "accounts/register.html", {"form": form})
         _set_pending_2fa_session(request, user_id=user.pk, remember_me=True)
         try:
             send_login_2fa_code(request, user)

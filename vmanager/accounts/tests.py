@@ -50,6 +50,29 @@ class AccountProfileTests(TestCase):
         self.assertEqual(user.profile.club_name, "")
         self.assertEqual(user.profile.child_name, "Karim Salem")
 
+    def test_register_with_existing_username_shows_form_error_instead_of_crashing(self):
+        User.objects.create_user(
+            username="maya@example.com",
+            email="different@example.com",
+            password="StrongPass123!",
+        )
+
+        response = self.client.post(
+            reverse("accounts:register"),
+            data={
+                "first_name": "Maya",
+                "last_name": "Haddad",
+                "email": "maya@example.com",
+                "password": "StrongPass123!",
+                "role": AccountProfile.ROLE_MANAGER,
+                "club_name": "Meis Volleyball Club",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "An account with this email already exists.")
+        self.assertEqual(User.objects.filter(username="maya@example.com").count(), 1)
+
     def test_dashboard_allows_valid_jwt_cookie(self):
         user = User.objects.create_user(
             username="coach@example.com",

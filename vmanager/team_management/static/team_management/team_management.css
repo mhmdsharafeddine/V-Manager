@@ -8,6 +8,32 @@
     padding: 34px 0 72px;
 }
 
+.toast-stack {
+    position: fixed;
+    top: 22px;
+    right: 22px;
+    z-index: 40;
+    display: grid;
+    gap: 10px;
+    width: min(360px, calc(100vw - 32px));
+}
+
+.toast-message {
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: rgba(15, 28, 36, 0.92);
+    color: #ffffff;
+    box-shadow: 0 20px 36px rgba(6, 14, 18, 0.2);
+    transform: translateY(0);
+    opacity: 1;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.toast-hide {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
 .team-hero {
     padding: 18px 0 30px;
 }
@@ -35,20 +61,49 @@
 }
 
 .summary-card {
+    position: relative;
+    isolation: isolate;
     min-height: 170px;
     padding: 18px 18px 16px;
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.95);
     border: 2px solid rgba(36, 174, 205, 0.18);
     box-shadow: 0 12px 22px rgba(21, 101, 130, 0.14);
-    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease, border-color 0.22s ease;
+}
+
+.summary-card::after {
+    content: "";
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: -14px;
+    height: 34px;
+    border-radius: 999px;
+    background: radial-gradient(ellipse at center, rgba(88, 214, 243, 0.34) 0%, rgba(88, 214, 243, 0.1) 46%, rgba(88, 214, 243, 0) 74%);
+    filter: blur(12px);
+    opacity: 0;
+    transform: translateY(8px) scaleX(0.88);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .summary-card:hover,
 .summary-card:focus-within {
     transform: translateY(-6px);
-    box-shadow: 0 18px 30px rgba(21, 101, 130, 0.18);
+    border-color: rgba(18, 139, 196, 0.92);
+    box-shadow:
+        0 18px 30px rgba(21, 101, 130, 0.18),
+        0 0 0 1px rgba(112, 225, 248, 0.2),
+        0 22px 40px rgba(86, 210, 239, 0.2);
     filter: brightness(1.01);
+}
+
+.summary-card:hover::after,
+.summary-card:focus-within::after {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
 }
 
 .summary-card strong {
@@ -201,6 +256,17 @@
 }
 
 .roster-panel-actions {
+    display: grid;
+    gap: 14px;
+    min-width: min(520px, 100%);
+}
+
+.roster-actions-shell {
+    display: grid;
+    gap: 14px;
+}
+
+.roster-actions-top {
     display: flex;
     align-items: flex-start;
     gap: 16px;
@@ -283,6 +349,44 @@
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12), 0 8px 15px rgba(0, 0, 0, 0.08);
 }
 
+.roster-dropdown-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.roster-filter-field {
+    display: grid;
+    gap: 8px;
+}
+
+.roster-filter-field > span {
+    color: #5f6d75;
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.roster-select {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 16px;
+    border: 1px solid rgba(17, 20, 27, 0.12);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #20313a;
+    box-shadow: 0 10px 18px rgba(13, 94, 122, 0.08);
+    cursor: pointer;
+    transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+}
+
+.roster-select:hover,
+.roster-select:focus {
+    outline: none;
+    border-color: rgba(24, 155, 197, 0.42);
+    box-shadow: 0 12px 22px rgba(13, 94, 122, 0.1), 0 0 0 4px rgba(24, 155, 197, 0.08);
+    transform: translateY(-1px);
+}
+
 .team-primary-button,
 .team-secondary-button {
     display: inline-flex;
@@ -292,6 +396,7 @@
     padding: 0 20px;
     border-radius: 999px;
     font-weight: 800;
+    cursor: pointer;
     transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
 }
 
@@ -315,6 +420,12 @@
     padding-inline: 18px;
 }
 
+.team-danger-button {
+    border-color: rgba(196, 59, 84, 0.26);
+    color: #9f2740;
+    background: linear-gradient(180deg, #fff1f4, #ffe4ea);
+}
+
 .team-primary-button:hover,
 .team-primary-button:focus-visible,
 .team-secondary-button:hover,
@@ -328,19 +439,48 @@
 }
 
 .roster-card {
+    position: relative;
+    isolation: isolate;
     padding: 18px 18px 20px;
     border-radius: 22px;
     background: rgba(255, 255, 255, 0.94);
     border: 2px solid rgba(36, 174, 205, 0.14);
     box-shadow: 0 12px 24px rgba(17, 90, 114, 0.12);
-    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease, border-color 0.22s ease;
+}
+
+.roster-card::after {
+    content: "";
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: -14px;
+    height: 34px;
+    border-radius: 999px;
+    background: radial-gradient(ellipse at center, rgba(88, 214, 243, 0.32) 0%, rgba(88, 214, 243, 0.1) 46%, rgba(88, 214, 243, 0) 74%);
+    filter: blur(12px);
+    opacity: 0;
+    transform: translateY(8px) scaleX(0.9);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .roster-card:hover,
 .roster-card:focus-within {
     transform: translateY(-6px);
-    box-shadow: 0 18px 30px rgba(17, 90, 114, 0.16);
+    border-color: rgba(18, 139, 196, 0.86);
+    box-shadow:
+        0 18px 30px rgba(17, 90, 114, 0.16),
+        0 0 0 1px rgba(112, 225, 248, 0.18),
+        0 22px 40px rgba(86, 210, 239, 0.18);
     filter: brightness(1.01);
+}
+
+.roster-card:hover::after,
+.roster-card:focus-within::after {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
 }
 
 .roster-card-head {
@@ -350,6 +490,17 @@
     gap: 20px;
     padding-bottom: 16px;
     border-bottom: 1px solid rgba(17, 20, 27, 0.1);
+}
+
+.member-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.member-delete-form {
+    display: inline-flex;
 }
 
 .member-identify {
@@ -652,10 +803,44 @@
 }
 
 .active-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
     font-weight: 700;
+    cursor: pointer;
+}
+
+.active-toggle-card {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(28, 184, 214, 0.08), rgba(255, 255, 255, 0.94));
+    border: 1px solid rgba(36, 174, 205, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.team-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-top: 4px;
+    accent-color: #1d9fca;
+    flex: 0 0 auto;
+}
+
+.active-toggle-copy {
+    display: grid;
+    gap: 4px;
+}
+
+.active-toggle-copy strong {
+    font-size: 1.02rem;
+    color: #18202b;
+}
+
+.active-toggle-copy small {
+    color: #5f6c73;
+    line-height: 1.45;
 }
 
 .member-form-actions {
@@ -784,11 +969,16 @@
     }
 
     .roster-panel-actions,
+    .roster-actions-top,
     .member-form-actions,
     .roster-card-head,
     .recent-member-head {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .roster-dropdown-filters {
+        grid-template-columns: 1fr;
     }
 
     .roster-search {

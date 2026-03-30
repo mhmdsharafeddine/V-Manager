@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError, transaction
 
 from .models import AccountProfile
 
@@ -40,7 +41,7 @@ class RegistrationForm(forms.Form):
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
-        if User.objects.filter(email__iexact=email).exists():
+        if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username__iexact=email).exists():
             raise forms.ValidationError("An account with this email already exists.")
         return email
 
@@ -72,20 +73,24 @@ class RegistrationForm(forms.Form):
     def save(self):
         data = self.cleaned_data
         email = data["email"]
-        user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=data["password"],
-            first_name=data["first_name"].strip(),
-            last_name=data["last_name"].strip(),
-        )
-        AccountProfile.objects.create(
-            user=user,
-            role=data["role"],
-            club_name=data["club_name"].strip(),
-            child_name=data["child_name"].strip(),
-        )
-        return user
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=data["password"],
+                    first_name=data["first_name"].strip(),
+                    last_name=data["last_name"].strip(),
+                )
+                AccountProfile.objects.create(
+                    user=user,
+                    role=data["role"],
+                    club_name=data["club_name"].strip(),
+                    child_name=data["child_name"].strip(),
+                )
+                return user
+        except IntegrityError as exc:
+            raise forms.ValidationError("An account with this email already exists.") from exc
 
 
 class LoginForm(forms.Form):

@@ -8,13 +8,15 @@
 
         <nav class="site-nav" aria-label="Primary navigation">
             <a href="{% url 'home' %}#home">Home</a>
-            {% if request.user.is_authenticated %}
+            {% if can_access_team_features %}
                 <a href="{% url 'team_management:roster' %}">Roster</a>
             {% endif %}
             <div class="site-nav-item has-dropdown">
                 <a href="{% url 'home' %}#features" class="site-nav-link">Features</a>
                 <div class="nav-dropdown-menu" aria-label="Feature links">
-                    <a href="{% url 'team_management:roster' %}">Team Management</a>
+                    {% if can_access_team_features or not request.user.is_authenticated %}
+                        <a href="{% url 'team_management:roster' %}">Team Management</a>
+                    {% endif %}
                     <a href="{% url 'home' %}#feature-schedule">Schedule &amp; Events</a>
                     <a href="{% url 'home' %}#feature-performance">Performance Tracking</a>
                     <a href="{% url 'home' %}#feature-readiness">Match Readiness Score</a>

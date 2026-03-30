@@ -79,7 +79,53 @@ class TeamManagementTests(TestCase):
 
         response = self.client.get(reverse("team_management:add_member"))
 
-        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertRedirects(response, reverse("home"))
+
+    def test_inactive_player_cannot_access_roster(self):
+        manager = self._create_user(
+            email="managerinactive@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Echo Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        player = self._create_user(email="inactiveplayer@example.com", role=AccountProfile.ROLE_PLAYER)
+        TeamMembership.objects.create(
+            user=player,
+            team=team,
+            member_title="Player",
+            added_by=manager,
+            is_active=False,
+        )
+
+        self.client.force_login(player)
+        response = self.client.get(reverse("team_management:roster"), follow=True)
+
+        self.assertRedirects(response, reverse("home"))
+        self.assertContains(response, "Your team access is inactive.")
+
+        home_response = self.client.get(reverse("home"))
+        self.assertNotContains(home_response, 'href="/team/roster/"', html=False)
+        self.assertContains(home_response, "Inactive Access")
+
+    def test_inactive_manager_cannot_access_roster(self):
+        manager = self._create_user(
+            email="managerblocked@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Pulse Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        membership = TeamMembership.objects.get(user=manager)
+        membership.is_active = False
+        membership.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("team_management:roster"), follow=True)
+
+        self.assertRedirects(response, reverse("home"))
+        self.assertContains(response, "Your team access is inactive.")
 
     def test_manager_can_add_existing_unassigned_player(self):
         manager = self._create_user(
@@ -107,11 +153,14 @@ class TeamManagementTests(TestCase):
                 "member_title": "Player",
                 "is_active": "on",
             },
+            follow=True,
         )
 
         self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "Player added.")
         membership = TeamMembership.objects.get(user=player)
         self.assertEqual(membership.team, team)
+        self.assertTrue(membership.is_active)
         player.refresh_from_db()
         self.assertEqual(player.profile.position, "Setter")
 
@@ -173,12 +222,15 @@ class TeamManagementTests(TestCase):
                 "phone_number": "+961333333",
                 "date_of_birth": "1990-07-04",
             },
+            follow=True,
         )
 
         self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "Coach added.")
         membership = TeamMembership.objects.get(user=staff)
         self.assertEqual(membership.team, team)
         self.assertEqual(membership.member_title, "Coach")
+        self.assertTrue(membership.is_active)
         staff.refresh_from_db()
         self.assertEqual(staff.profile.position, "")
         self.assertIsNone(staff.profile.jersey_number)
@@ -231,6 +283,57 @@ class TeamManagementTests(TestCase):
         self.assertEqual(len(members), 1)
         self.assertEqual(members[0]["user"].email, "inactiveonly@example.com")
 
+    def test_roster_member_type_filter_filters_roles(self):
+        manager = self._create_user(
+            email="managerfilter@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Role Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        coach = self._create_user(email="coachfilter@example.com", role=AccountProfile.ROLE_COACH)
+        staff = self._create_user(email="stafffilter@example.com", role=AccountProfile.ROLE_STAFF)
+        captain = self._create_user(email="captainfilter@example.com", role=AccountProfile.ROLE_PLAYER)
+
+        TeamMembership.objects.create(user=coach, team=team, member_title="Coach", added_by=manager)
+        TeamMembership.objects.create(user=staff, team=team, member_title="Staff", added_by=manager)
+        TeamMembership.objects.create(user=captain, team=team, member_title="Captain", added_by=manager)
+
+        response = self.client.get(reverse("team_management:roster"), {"member_type": "captains"})
+
+        members = response.context["members"]
+        self.assertEqual(response.context["member_type_filter"], "captains")
+        self.assertEqual(len(members), 1)
+        self.assertEqual(members[0]["user"].email, "captainfilter@example.com")
+
+    def test_roster_sort_filter_orders_members(self):
+        manager = self._create_user(
+            email="managersort@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Sort Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        zara = self._create_user(email="zara@example.com", role=AccountProfile.ROLE_PLAYER)
+        adam = self._create_user(email="adam@example.com", role=AccountProfile.ROLE_PLAYER)
+
+        zara_membership = TeamMembership.objects.create(user=zara, team=team, member_title="Player", added_by=manager)
+        adam_membership = TeamMembership.objects.create(user=adam, team=team, member_title="Player", added_by=manager)
+
+        alphabetical_response = self.client.get(reverse("team_management:roster"), {"sort": "alphabetical"})
+        alphabetical_emails = [member["user"].email for member in alphabetical_response.context["members"]]
+        self.assertLess(alphabetical_emails.index("adam@example.com"), alphabetical_emails.index("zara@example.com"))
+
+        newest_response = self.client.get(reverse("team_management:roster"), {"sort": "newest"})
+        newest_members = newest_response.context["members"]
+        self.assertEqual(newest_response.context["sort_filter"], "newest")
+        self.assertEqual(newest_members[0]["membership"].pk, adam_membership.pk)
+        self.assertEqual(newest_members[1]["membership"].pk, zara_membership.pk)
+
     def test_manager_can_add_parent_account_as_player_using_parent_email(self):
         manager = self._create_user(
             email="manager6@example.com",
@@ -259,11 +362,14 @@ class TeamManagementTests(TestCase):
                 "member_title": "Player",
                 "is_active": "on",
             },
+            follow=True,
         )
 
         self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "Player added.")
         membership = TeamMembership.objects.get(user=parent)
         self.assertEqual(membership.team, team)
+        self.assertTrue(membership.is_active)
         parent.profile.refresh_from_db()
         self.assertEqual(parent.profile.child_name, "Maya Salem")
         self.assertEqual(parent.profile.position, "Setter")
@@ -292,3 +398,160 @@ class TeamManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Lina Haddad")
+
+    def test_manager_can_delete_member_from_roster(self):
+        manager = self._create_user(
+            email="manager8@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Phoenix Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        player = self._create_user(email="deleteplayer@example.com", role=AccountProfile.ROLE_PLAYER)
+        membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+
+        response = self.client.post(
+            reverse("team_management:delete_member", args=[membership.pk]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertFalse(TeamMembership.objects.filter(pk=membership.pk).exists())
+        self.assertContains(response, "Player deleted.")
+
+    def test_staff_can_delete_players_but_not_managers(self):
+        manager = self._create_user(
+            email="manager9@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Nova Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        staff = self._create_user(email="staffdelete@example.com", role=AccountProfile.ROLE_STAFF)
+        player = self._create_user(email="stafftarget@example.com", role=AccountProfile.ROLE_PLAYER)
+        TeamMembership.objects.create(user=staff, team=team, member_title="Staff", added_by=manager)
+        player_membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+
+        self.client.force_login(staff)
+        response = self.client.get(reverse("team_management:roster"))
+        members = {member["user"].email: member for member in response.context["members"]}
+        self.assertTrue(members["stafftarget@example.com"]["can_delete"])
+        self.assertFalse(members["manager9@example.com"]["can_delete"])
+
+        blocked_response = self.client.post(
+            reverse("team_management:delete_member", args=[TeamMembership.objects.get(user=manager).pk]),
+            follow=True,
+        )
+        self.assertRedirects(blocked_response, reverse("team_management:roster"))
+        self.assertContains(blocked_response, "Staff members cannot remove managers from the roster.")
+        self.assertTrue(TeamMembership.objects.filter(user=manager, team=team).exists())
+
+        allowed_response = self.client.post(
+            reverse("team_management:delete_member", args=[player_membership.pk]),
+            follow=True,
+        )
+        self.assertRedirects(allowed_response, reverse("team_management:roster"))
+        self.assertFalse(TeamMembership.objects.filter(pk=player_membership.pk).exists())
+
+    def test_player_cannot_access_delete_member(self):
+        manager = self._create_user(
+            email="manager10@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Atlas Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        player_a = self._create_user(email="playera@example.com", role=AccountProfile.ROLE_PLAYER)
+        player_b = self._create_user(email="playerb@example.com", role=AccountProfile.ROLE_PLAYER)
+        TeamMembership.objects.create(user=player_a, team=team, member_title="Player", added_by=manager)
+        player_b_membership = TeamMembership.objects.create(user=player_b, team=team, member_title="Player", added_by=manager)
+
+        self.client.force_login(player_a)
+        response = self.client.get(reverse("team_management:roster"))
+        self.assertNotContains(response, "Delete")
+
+        blocked_response = self.client.post(
+            reverse("team_management:delete_member", args=[player_b_membership.pk]),
+            follow=True,
+        )
+        self.assertRedirects(blocked_response, reverse("team_management:roster"))
+        self.assertContains(blocked_response, "Only managers and staff can remove roster members.")
+        self.assertTrue(TeamMembership.objects.filter(pk=player_b_membership.pk).exists())
+
+    def test_coach_cannot_access_delete_member(self):
+        manager = self._create_user(
+            email="manager11@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Comets Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        coach = self._create_user(email="coachdelete@example.com", role=AccountProfile.ROLE_COACH)
+        player = self._create_user(email="coachtarget@example.com", role=AccountProfile.ROLE_PLAYER)
+        TeamMembership.objects.create(user=coach, team=team, member_title="Coach", added_by=manager)
+        player_membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+
+        self.client.force_login(coach)
+        response = self.client.get(reverse("team_management:roster"))
+        self.assertNotContains(response, "Delete")
+
+        blocked_response = self.client.post(
+            reverse("team_management:delete_member", args=[player_membership.pk]),
+            follow=True,
+        )
+        self.assertRedirects(blocked_response, reverse("team_management:roster"))
+        self.assertContains(blocked_response, "Only managers and staff can remove roster members.")
+        self.assertTrue(TeamMembership.objects.filter(pk=player_membership.pk).exists())
+
+    def test_coach_can_edit_players_but_not_staff_or_coaches(self):
+        manager = self._create_user(
+            email="manager12@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Titans Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        coach = self._create_user(email="coachlead@example.com", role=AccountProfile.ROLE_COACH)
+        player = self._create_user(email="editableplayer@example.com", role=AccountProfile.ROLE_PLAYER)
+        staff = self._create_user(email="lockedstaff@example.com", role=AccountProfile.ROLE_STAFF)
+        other_coach = self._create_user(email="lockedcoach@example.com", role=AccountProfile.ROLE_COACH)
+
+        TeamMembership.objects.create(user=coach, team=team, member_title="Coach", added_by=manager)
+        player_membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+        staff_membership = TeamMembership.objects.create(user=staff, team=team, member_title="Staff", added_by=manager)
+        coach_membership = TeamMembership.objects.create(user=other_coach, team=team, member_title="Coach", added_by=manager)
+
+        self.client.force_login(coach)
+        response = self.client.get(reverse("team_management:roster"))
+        members = {member["user"].email: member for member in response.context["members"]}
+
+        self.assertTrue(members["editableplayer@example.com"]["can_edit"])
+        self.assertFalse(members["lockedstaff@example.com"]["can_edit"])
+        self.assertFalse(members["lockedcoach@example.com"]["can_edit"])
+
+        player_edit_response = self.client.get(reverse("team_management:edit_member", args=[player_membership.pk]))
+        self.assertEqual(player_edit_response.status_code, 200)
+
+        staff_edit_response = self.client.get(
+            reverse("team_management:edit_member", args=[staff_membership.pk]),
+            follow=True,
+        )
+        self.assertRedirects(staff_edit_response, reverse("team_management:roster"))
+        self.assertContains(staff_edit_response, "Coaches can only edit player roster members.")
+
+        coach_edit_response = self.client.get(
+            reverse("team_management:edit_member", args=[coach_membership.pk]),
+            follow=True,
+        )
+        self.assertRedirects(coach_edit_response, reverse("team_management:roster"))
+        self.assertContains(coach_edit_response, "Coaches can only edit player roster members.")

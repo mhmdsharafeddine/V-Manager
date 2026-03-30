@@ -5,10 +5,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}V-Manager{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'core/base.css' %}?v=4">
+    <script>
+        document.documentElement.classList.add("js");
+    </script>
+    <link rel="stylesheet" href="{% static 'core/base.css' %}?v=8">
     {% block extra_css %}{% endblock %}
+    <noscript>
+        <style>
+            .page-loader {
+                display: none !important;
+            }
+        </style>
+    </noscript>
 </head>
 <body class="{% block base_body_class %}layout-body{% endblock %} {% block body_class %}{% endblock %}" {% block body_attributes %}{% endblock %}>
+    <div class="page-loader" aria-hidden="true" data-page-loader>
+        <div class="page-loader__glow"></div>
+        <div class="page-loader__panel">
+            <div class="page-loader__badge">V-Manager</div>
+            <div class="page-loader__stage" aria-hidden="true">
+                <div class="page-loader__ring"></div>
+                <div class="page-loader__court"></div>
+                <div class="page-loader__ball">
+                    <span class="page-loader__ball-core"></span>
+                    <span class="page-loader__ball-shadow"></span>
+                </div>
+            </div>
+            <div class="page-loader__copy">
+                <strong>Loading your workspace</strong>
+                <span>Getting everything ready for the next move.</span>
+            </div>
+            <div class="page-loader__track" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
     {% block navbar %}
         {% include "partials/navbar.html" %}
     {% endblock %}
@@ -21,6 +55,108 @@
         {% include "partials/footer.html" %}
     {% endblock %}
 
+    <script>
+        (() => {
+            const body = document.body;
+            const loader = document.querySelector("[data-page-loader]");
+            const LOADER_DELAY_MS = 260;
+            const MIN_VISIBLE_MS = 240;
+            let showTimer = null;
+            let shownAt = 0;
+
+            if (!body || !loader) {
+                return;
+            }
+
+            const clearShowTimer = () => {
+                if (showTimer) {
+                    window.clearTimeout(showTimer);
+                    showTimer = null;
+                }
+            };
+
+            const hideLoader = () => {
+                clearShowTimer();
+
+                const elapsed = shownAt ? Date.now() - shownAt : 0;
+                const remainingVisibleTime = shownAt ? Math.max(0, MIN_VISIBLE_MS - elapsed) : 0;
+
+                window.setTimeout(() => {
+                    body.classList.remove("is-loading");
+                    shownAt = 0;
+                }, remainingVisibleTime);
+            };
+
+            const scheduleLoader = () => {
+                if (body.classList.contains("is-loading") || showTimer) {
+                    return;
+                }
+
+                showTimer = window.setTimeout(() => {
+                    body.classList.add("is-loading");
+                    shownAt = Date.now();
+                    showTimer = null;
+                }, LOADER_DELAY_MS);
+            };
+
+            const isNavigatingLink = (link, event) => {
+                if (!link || event.defaultPrevented) {
+                    return false;
+                }
+
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                    return false;
+                }
+
+                if (link.target && link.target !== "_self") {
+                    return false;
+                }
+
+                if (link.hasAttribute("download")) {
+                    return false;
+                }
+
+                const href = link.getAttribute("href");
+                if (!href || href.startsWith("#")) {
+                    return false;
+                }
+
+                const url = new URL(link.href, window.location.href);
+                if (url.origin !== window.location.origin) {
+                    return false;
+                }
+
+                const isHashOnlyNavigation =
+                    url.pathname === window.location.pathname &&
+                    url.search === window.location.search &&
+                    url.hash;
+
+                return !isHashOnlyNavigation;
+            };
+
+            if (document.readyState !== "complete") {
+                scheduleLoader();
+            }
+
+            window.addEventListener("load", hideLoader);
+            window.addEventListener("pageshow", hideLoader);
+
+            document.addEventListener("click", (event) => {
+                const link = event.target.closest("a");
+                if (isNavigatingLink(link, event)) {
+                    scheduleLoader();
+                }
+            });
+
+            document.addEventListener("submit", (event) => {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || event.defaultPrevented) {
+                    return;
+                }
+                scheduleLoader();
+            });
+        })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
