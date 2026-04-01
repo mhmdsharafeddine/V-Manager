@@ -1,0 +1,45 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Team Membership Status | V-Manager{% endblock %}
+
+{% block body_class %}auth-register-page{% endblock %}
+
+{% block auth_content %}
+<main class="auth-shell auth-shell-register">
+    <a class="auth-brand auth-brand-centered" href="{% url 'home' %}">
+        <img src="/static/Logo.png" alt="V-Manager logo">
+        <span>V-Manager</span>
+    </a>
+
+    <section class="auth-card auth-card-register">
+        <header class="auth-card-header">
+            <h2>Team Request Status</h2>
+            <p>Team: {{ team_name }}</p>
+        </header>
+
+        {% if membership.status == 'pending' %}
+            <div class="auth-hint" style="margin-bottom:12px;">
+                Your request to join this team is pending review.
+            </div>
+            <p>Please wait for a team manager, staff member, or coach to admit you and assign your final role.</p>
+            <p><strong>Requested Role:</strong> {{ requested_role }}</p>
+        {% elif membership.status == 'rejected' %}
+            <div class="auth-errors" style="margin-bottom:12px;">
+                <p>Your request was rejected.</p>
+            </div>
+            <p><strong>Requested Role:</strong> {{ requested_role }}</p>
+            {% if membership.rejection_reason %}
+                <p><strong>Reason:</strong> {{ membership.rejection_reason }}</p>
+            {% endif %}
+            <p>Please contact team management if you believe this was a mistake.</p>
+        {% endif %}
+
+        <div class="form-actions">
+            <form method="POST" action="{% url 'accounts:logout' %}" style="width:100%;max-width:400px;">
+                {% csrf_token %}
+                <button type="submit" class="auth-submit" style="width:100%;border:none;">Sign Out</button>
+            </form>
+        </div>
+    </section>
+</main>
+{% endblock %}

@@ -120,11 +120,15 @@ a {
 }
 
 .nav-shell {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 28px;
+    gap: 18px 24px;
     min-height: 82px;
+    padding: 10px 0;
+    width: min(1480px, calc(100vw - 48px));
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .brand {
@@ -135,6 +139,8 @@ a {
     font-weight: 800;
     color: var(--primary);
     line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .brand img {
@@ -146,12 +152,21 @@ a {
 .site-nav {
     display: flex;
     align-items: center;
-    gap: 34px;
+    justify-content: center;
+    gap: clamp(14px, 1.65vw, 28px);
+    flex-wrap: nowrap;
+    min-width: 0;
     font-weight: 700;
     color: #1a9fc4;
 }
 
+.site-nav > a,
+.site-nav > .site-nav-item {
+    flex: 0 0 auto;
+}
+
 .site-nav a {
+    white-space: nowrap;
     transition: color 0.2s ease, transform 0.2s ease;
 }
 
@@ -168,13 +183,24 @@ a {
     gap: 12px;
 }
 
+.nav-actions {
+    justify-self: end;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
 .nav-user {
+    display: inline-flex;
+    align-items: center;
     padding: 10px 16px;
     border-radius: 999px;
     background: rgba(32, 164, 196, 0.12);
     color: var(--primary-dark);
     font-weight: 800;
     white-space: nowrap;
+    max-width: min(34vw, 360px);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .nav-logout-form,
@@ -184,6 +210,23 @@ a {
 
 .nav-logout-button {
     cursor: pointer;
+}
+
+.nav-notify-button,
+.nav-logout-button {
+    white-space: nowrap;
+}
+
+.nav-icon-button {
+    width: 74px;
+    min-width: 74px;
+    padding: 0;
+}
+
+.nav-icon-symbol {
+    width: 40px;
+    height: 40px;
+    color: currentColor;
 }
 
 .button {
@@ -789,8 +832,18 @@ a {
 @media (max-width: 1080px) {
     .section-heading h2 {
         white-space: normal;
-    }    .site-nav {
-        gap: 18px;
+    }
+
+    .nav-shell {
+        grid-template-columns: auto auto;
+        justify-content: space-between;
+        gap: 14px 20px;
+    }
+
+    .site-nav {
+        grid-column: 1 / -1;
+        flex-wrap: wrap;
+        gap: 12px 18px;
         font-size: 0.95rem;
     }
 
@@ -832,6 +885,7 @@ a {
     }
 
     .nav-shell {
+        display: flex;
         flex-direction: column;
         justify-content: center;
         padding: 18px 0 22px;
@@ -916,6 +970,11 @@ a {
 
     .button {
         width: 100%;
+    }
+
+    .nav-actions .nav-icon-button {
+        width: 58px;
+        min-width: 58px;
     }
 
     .feature-card-body p {

@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Event | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=11">
+{% endblock %}
+
+{% block body_class %}schedule-page schedule-create-page{% endblock %}
+
+{% block content %}
+<main class="schedule-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container schedule-heading">
+        <h1>Scheduling Events</h1>
+        <p>Plan practices, training sessions, and match events with quick scheduling and automatic reminders.</p>
+    </section>
+
+    <section class="container schedule-grid schedule-grid-create">
+        <article class="schedule-card create-card">
+            <div class="card-header-row">
+                <h2>{{ form_title|default:'Create New Event' }}</h2>
+            </div>
+
+            <form class="event-form" action="{{ form_action|default:'' }}" method="post">
+                {% csrf_token %}
+                {% if selected_ym %}
+                    <input type="hidden" name="ym" value="{{ selected_ym }}">
+                {% endif %}
+
+                <label for="event-title">Event Title</label>
+                <input id="event-title" name="title" type="text" placeholder="Practice, Match, Tournament" value="{{ form_data.title|default:'' }}" required>
+
+                <label for="event-type">Event Type</label>
+                <select id="event-type" name="event_type">
+                    <option value="practice" {% if form_data.event_type == 'practice' %}selected{% endif %}>Practice</option>
+                    <option value="match" {% if form_data.event_type == 'match' %}selected{% endif %}>Match</option>
+                    <option value="tournament" {% if form_data.event_type == 'tournament' %}selected{% endif %}>Tournament</option>
+                    <option value="training" {% if form_data.event_type == 'training' %}selected{% endif %}>Strength Training</option>
+                    <option value="other" {% if form_data.event_type == 'other' %}selected{% endif %}>Other</option>
+                </select>
+
+                <div class="event-form-split">
+                    <div>
+                        <label for="event-date">Date</label>
+                        <input id="event-date" name="date" type="date" min="{{ min_date }}" value="{{ form_data.date|default:'' }}" required>
+                    </div>
+                    <div>
+                        <label for="event-time">Time</label>
+                        <input id="event-time" name="time" type="time" value="{{ form_data.time|default:'' }}" required>
+                    </div>
+                </div>
+
+                <label for="event-location">Location</label>
+                <input id="event-location" name="location" type="text" placeholder="Sports Hall A" value="{{ form_data.location|default:'' }}">
+
+                <label for="event-attendees">Expected Attendees</label>
+                <input id="event-attendees" name="attendees_count" type="number" min="0" placeholder="0" value="{{ form_data.attendees_count|default:'' }}">
+
+                <div class="event-form-split">
+                    <div>
+                        <label for="event-duration">Duration (minutes)</label>
+                        <input id="event-duration" name="duration_minutes" type="number" min="1" step="1" value="{{ form_data.duration_minutes|default:'90' }}" required>
+                    </div>
+                    <div>
+                        <label for="event-audience">Visible To</label>
+                        <div class="audience-grid" id="event-audience" role="group" aria-label="Choose who can see this event">
+                            <label class="audience-option">
+                                <input type="checkbox" name="audience" value="all" data-audience-all {% if 'all' in form_data.audience %}checked{% endif %}>
+                                <span>Entire Team</span>
+                            </label>
+                            <label class="audience-option">
+                                <input type="checkbox" name="audience" value="players" data-audience-child {% if 'players' in form_data.audience %}checked{% endif %}>
+                                <span>Players</span>
+                            </label>
+                            <label class="audience-option">
+                                <input type="checkbox" name="audience" value="coaches" data-audience-child {% if 'coaches' in form_data.audience %}checked{% endif %}>
+                                <span>Coaches</span>
+                            </label>
+                            <label class="audience-option">
+                                <input type="checkbox" name="audience" value="staff" data-audience-child {% if 'staff' in form_data.audience %}checked{% endif %}>
+                                <span>Staff</span>
+                            </label>
+                            <label class="audience-option">
+                                <input type="checkbox" name="audience" value="parents" data-audience-child {% if 'parents' in form_data.audience %}checked{% endif %}>
+                                <span>Parents</span>
+                            </label>
+                            <label class="audience-option audience-option-private">
+                                <input type="checkbox" name="audience" value="private" data-audience-private {% if 'private' in form_data.audience %}checked{% endif %}>
+                                <span>Only Me</span>
+                            </label>
+                        </div>
+                        <small class="field-note">
+                            <strong>Default: Entire Team</strong> — So all team members can see it.
+                            Select specific groups if you want to limit visibility (e.g., "Coaches only" or "Players only").
+                            "Only Me" makes the event private.
+                        </small>
+                    </div>
+                </div>
+
+                <label for="event-details">Event Details</label>
+                <textarea id="event-details" name="details" rows="4" placeholder="Add additional event notes for your team.">{{ form_data.details|default:'' }}</textarea>
+
+                <div class="reminder-box">
+                    <h3>Automated Notifications</h3>
+                    <div class="reminder-checklist">
+                        <label><input type="checkbox" checked name="notify_24h"> Reminder sent 24 hours before event</label>
+                        <label><input type="checkbox" checked name="notify_2h"> Reminder sent 2 hours before event</label>
+                        <label><input type="checkbox" checked name="notify_changes"> Immediate alert for schedule changes</label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">{{ submit_label|default:'Create Event' }}</button>
+                    <a href="{{ cancel_url|default:'' }}" class="btn btn-secondary btn-link">Cancel</a>
+                </div>
+            </form>
+        </article>
+
+        <aside class="schedule-side-column">
+            <article class="schedule-card upcoming-card">
+                <h3>Upcoming Events</h3>
+                {% for event in upcoming_events %}
+                    <div class="upcoming-item">
+                        <div class="event-icon {% cycle 'event-icon-red' 'event-icon-cyan' 'event-icon-amber' %}">{{ event.title|slice:":1"|upper }}</div>
+                        <div class="event-copy">
+                            <strong>{{ event.title }}</strong>
+                            <span>{{ event.scheduled_at|date:"D, j F" }} at {{ event.scheduled_at|time:"g:i A" }}</span>
+                            <small>{{ event.attendees_count }} Attendees</small>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="upcoming-empty">No upcoming events yet. Create your first event to populate this section.</p>
+                {% endfor %}
+            </article>
+
+            <article class="schedule-card month-card">
+                <p>This Month</p>
+                <strong>{{ monthly_total }}</strong>
+                <span>Scheduled Events</span>
+                <div class="month-stats">
+                    <div><strong>{{ monthly_matches }}</strong><span>Matches</span></div>
+                    <div><strong>{{ monthly_practices }}</strong><span>Practices</span></div>
+                </div>
+            </article>
+        </aside>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const toasts = document.querySelectorAll(".toast-message");
+        const audienceAll = document.querySelector("[data-audience-all]");
+        const audienceChildren = Array.from(document.querySelectorAll("[data-audience-child]"));
+        const audiencePrivate = document.querySelector("[data-audience-private]");
+
+        if (toasts.length) {
+            toasts.forEach((toast, index) => {
+                const dismissToast = () => {
+                    toast.classList.add("toast-hide");
+                    window.setTimeout(() => toast.remove(), 320);
+                };
+
+                window.setTimeout(dismissToast, 2600 + index * 160);
+            });
+
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape") {
+                    const latestToast = document.querySelector(".toast-message:last-child");
+                    if (latestToast) {
+                        latestToast.classList.add("toast-hide");
+                        window.setTimeout(() => latestToast.remove(), 320);
+                    }
+                }
+            });
+        }
+
+        const syncAudienceFromChildren = () => {
+            if (!audienceAll || !audienceChildren.length) {
+                return;
+            }
+            const everyChildChecked = audienceChildren.every((checkbox) => checkbox.checked);
+            audienceAll.checked = everyChildChecked;
+        };
+
+        if (audienceAll && audienceChildren.length) {
+            audienceAll.addEventListener("change", () => {
+                const shouldCheck = audienceAll.checked;
+                audienceChildren.forEach((checkbox) => {
+                    checkbox.checked = shouldCheck;
+                });
+                if (shouldCheck && audiencePrivate) {
+                    audiencePrivate.checked = false;
+                }
+            });
+
+            audienceChildren.forEach((checkbox) => {
+                checkbox.addEventListener("change", () => {
+                    syncAudienceFromChildren();
+                    if (checkbox.checked && audiencePrivate) {
+                        audiencePrivate.checked = false;
+                    }
+                });
+            });
+        }
+
+        if (audiencePrivate) {
+            audiencePrivate.addEventListener("change", () => {
+                if (audiencePrivate.checked) {
+                    if (audienceAll) {
+                        audienceAll.checked = false;
+                    }
+                    audienceChildren.forEach((checkbox) => {
+                        checkbox.checked = false;
+                    });
+                }
+            });
+        }
+
+        if (audienceAll && audienceAll.checked) {
+            audienceChildren.forEach((checkbox) => {
+                checkbox.checked = true;
+            });
+        } else {
+            syncAudienceFromChildren();
+        }
+    })();
+</script>
+{% endblock %}

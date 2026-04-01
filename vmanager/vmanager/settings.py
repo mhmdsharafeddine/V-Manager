@@ -72,6 +72,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'team_management.context_processors.team_access',
+                'scheduling.context_processors.schedule_notifications',
             ],
         },
     },
@@ -140,7 +141,7 @@ LOGIN_URL = "/auth/login/"
 LOGIN_REDIRECT_URL = "/"
 
 ## SWITCH BETWEEN SMTP AND CONSOLE BACKEND FOR TESTING
-EMAIL_BACKEND ="django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True

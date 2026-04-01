@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Performance Analytics | V-Manager{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=5">
+{% endblock %}
+
+{% block body_class %}performance-page{% endblock %}
+
+{% block content %}
+<main class="performance-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container performance-head">
+        <div>
+            <h1>Performance Analytics Dashboard</h1>
+            <p>Track your team's outcomes and player metrics linked directly to scheduled events.</p>
+        </div>
+        <div class="performance-actions">
+            {% if can_manage_performance %}
+                <a class="button button-accent" href="{% url 'performance:record_create' %}">Input Performance Data</a>
+            {% endif %}
+            <a class="button button-outline" href="{% url 'scheduling:home' %}">Schedule</a>
+        </div>
+    </section>
+
+    <section class="container perf-kpi-grid">
+        <article class="perf-kpi-card perf-kpi-teal">
+            <p>Total Events</p>
+            <strong>{{ total_events }}</strong>
+        </article>
+        <article class="perf-kpi-card perf-kpi-green">
+            <p>Wins</p>
+            <strong>{{ wins }}</strong>
+        </article>
+        <article class="perf-kpi-card perf-kpi-red">
+            <p>Losses</p>
+            <strong>{{ losses }}</strong>
+        </article>
+        <article class="perf-kpi-card perf-kpi-amber">
+            <p>Win Rate</p>
+            <strong>{{ win_rate }}%</strong>
+        </article>
+        <article class="perf-kpi-card perf-kpi-blue">
+            <p>Avg Target Achievement</p>
+            <strong>{{ avg_target_percent }}%</strong>
+        </article>
+    </section>
+
+    <section class="container perf-chart-grid">
+        <article class="perf-chart-card">
+            <h2>Season Trend</h2>
+            <canvas id="seasonTrendChart"></canvas>
+        </article>
+        <article class="perf-chart-card">
+            <h2>Match Distribution</h2>
+            <canvas id="distributionChart"></canvas>
+        </article>
+    </section>
+
+    <section class="container perf-chart-card">
+        <h2>Top Player Statistics</h2>
+        <canvas id="topPlayersChart"></canvas>
+    </section>
+
+    <section class="container perf-table-card">
+        <h2>Recent Records</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Member</th>
+                        <th>Attendance</th>
+                        <th>Result</th>
+                        <th>Points</th>
+                        <th>Kills</th>
+                        <th>Aces</th>
+                        <th>Blocks</th>
+                        <th>Errors</th>
+                        {% if can_manage_performance %}
+                            <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in recent_records %}
+                        <tr>
+                            <td>{{ record.event.title }}</td>
+                            <td>{{ record.member.user.get_full_name|default:record.member.user.email }}</td>
+                            <td>{{ record.get_participation_status_display }}</td>
+                            <td>{{ record.get_result_display }}</td>
+                            <td>{{ record.points_scored }} - {{ record.points_conceded }}</td>
+                            <td>{{ record.kills }}</td>
+                            <td>{{ record.aces }}</td>
+                            <td>{{ record.blocks }}</td>
+                            <td>{{ record.unforced_errors }}</td>
+                            {% if can_manage_performance %}
+                                <td><a class="button button-outline perf-table-action" href="{% url 'performance:record_edit' record.id %}">Edit</a></td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{% if can_manage_performance %}11{% else %}10{% endif %}">No performance records yet. Add your first record from the input page.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {{ month_labels|json_script:"perf-month-labels" }}
+    {{ month_avg_points|json_script:"perf-month-points" }}
+    {{ month_errors|json_script:"perf-month-errors" }}
+    {{ top_labels|json_script:"perf-top-labels" }}
+    {{ top_kills|json_script:"perf-top-kills" }}
+    {{ top_aces|json_script:"perf-top-aces" }}
+    {{ top_blocks|json_script:"perf-top-blocks" }}
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const toasts = document.querySelectorAll(".toast-message");
+    toasts.forEach((toast) => {
+        window.setTimeout(() => {
+            toast.classList.add("toast-hide");
+            window.setTimeout(() => toast.remove(), 300);
+        }, 2400);
+    });
+
+    const monthLabels = JSON.parse(document.getElementById("perf-month-labels").textContent || "[]");
+    const monthPoints = JSON.parse(document.getElementById("perf-month-points").textContent || "[]");
+    const monthErrors = JSON.parse(document.getElementById("perf-month-errors").textContent || "[]");
+    const topLabels = JSON.parse(document.getElementById("perf-top-labels").textContent || "[]");
+    const topKills = JSON.parse(document.getElementById("perf-top-kills").textContent || "[]");
+    const topAces = JSON.parse(document.getElementById("perf-top-aces").textContent || "[]");
+    const topBlocks = JSON.parse(document.getElementById("perf-top-blocks").textContent || "[]");
+
+    const trendCanvas = document.getElementById("seasonTrendChart");
+    if (trendCanvas) {
+        new Chart(trendCanvas, {
+            type: "line",
+            data: {
+                labels: monthLabels,
+                datasets: [
+                    {
+                        label: "Avg Points Scored",
+                        data: monthPoints,
+                        borderColor: "#11a0c8",
+                        backgroundColor: "rgba(17, 160, 200, 0.15)",
+                        fill: true,
+                        tension: 0.35,
+                    },
+                    {
+                        label: "Total Errors",
+                        data: monthErrors,
+                        borderColor: "#e34d4d",
+                        backgroundColor: "rgba(227, 77, 77, 0.12)",
+                        fill: true,
+                        tension: 0.35,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+            },
+        });
+    }
+
+    const distributionCanvas = document.getElementById("distributionChart");
+    if (distributionCanvas) {
+        new Chart(distributionCanvas, {
+            type: "doughnut",
+            data: {
+                labels: ["Match", "Tournament", "Practice", "Strength Training", "Other"],
+                datasets: [{
+                    data: [{{ dist_match }}, {{ dist_tournament }}, {{ dist_practice }}, {{ dist_training }}, {{ dist_other }}],
+                    backgroundColor: ["#11a0c8", "#f59e0b", "#7c5ce6", "#18a653", "#94a3b8"],
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+            },
+        });
+    }
+
+    const topPlayersCanvas = document.getElementById("topPlayersChart");
+    if (topPlayersCanvas) {
+        new Chart(topPlayersCanvas, {
+            type: "bar",
+            data: {
+                labels: topLabels,
+                datasets: [
+                    {
+                        label: "Kills",
+                        data: topKills,
+                        backgroundColor: "#7c5ce6",
+                    },
+                    {
+                        label: "Aces",
+                        data: topAces,
+                        backgroundColor: "#f59e0b",
+                    },
+                    {
+                        label: "Blocks",
+                        data: topBlocks,
+                        backgroundColor: "#11a0c8",
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+            },
+        });
+    }
+})();
+</script>
+{% endblock %}

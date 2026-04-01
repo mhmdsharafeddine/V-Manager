@@ -22,6 +22,15 @@ class Team(models.Model):
 
 
 class TeamMembership(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -33,6 +42,17 @@ class TeamMembership(models.Model):
         related_name="memberships",
     )
     member_title = models.CharField(max_length=120, blank=True)
+    requested_role = models.CharField(max_length=20, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_APPROVED)
+    rejection_reason = models.CharField(max_length=255, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_team_memberships",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.models import AccountProfile
+from accounts.models import AccountProfile, ParentChildLink
 
 from .models import TeamMembership
 
@@ -352,14 +352,14 @@ class TeamManagementTests(TestCase):
             reverse("team_management:add_member"),
             data={
                 "member_category": "player",
-                "first_name": "Maya",
-                "last_name": "Salem",
+                "first_name": "Rola",
+                "last_name": "Itani",
                 "email": "parent@example.com",
                 "phone_number": "+96170000000",
-                "date_of_birth": "2011-09-10",
+                "date_of_birth": "1987-09-10",
                 "jersey_number": "12",
                 "position": "Setter",
-                "member_title": "Player",
+                "member_title": "Parent",
                 "is_active": "on",
             },
             follow=True,
@@ -372,11 +372,17 @@ class TeamManagementTests(TestCase):
         self.assertTrue(membership.is_active)
         parent.profile.refresh_from_db()
         self.assertEqual(parent.profile.child_name, "Maya Salem")
-        self.assertEqual(parent.profile.position, "Setter")
+        parent.refresh_from_db()
+        self.assertEqual(parent.first_name, "Rola")
+        self.assertEqual(parent.last_name, "Itani")
+        self.assertEqual(str(parent.profile.date_of_birth), "1987-09-10")
+        self.assertEqual(parent.profile.position, "")
+        self.assertIsNone(parent.profile.jersey_number)
 
         roster_response = self.client.get(reverse("team_management:roster"))
-        self.assertContains(roster_response, "Maya Salem")
+        self.assertContains(roster_response, "Rola Itani")
         self.assertContains(roster_response, "parent@example.com")
+        self.assertNotContains(roster_response, "Maya Salem")
 
     def test_parent_added_to_roster_can_view_it(self):
         manager = self._create_user(
@@ -397,7 +403,61 @@ class TeamManagementTests(TestCase):
         response = self.client.get(reverse("team_management:roster"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Lina Haddad")
+        self.assertContains(response, "Parent2 User")
+        self.assertNotContains(response, "Lina Haddad")
+
+    def test_manager_can_edit_parent_without_position_or_jersey(self):
+        manager = self._create_user(
+            email="managerparentedit@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Lions Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        parent = self._create_user(email="parentedit@example.com", role=AccountProfile.ROLE_PARENT)
+        membership = TeamMembership.objects.create(
+            user=parent,
+            team=team,
+            member_title="Parent",
+            added_by=manager,
+            is_active=True,
+        )
+        child_one = self._create_user(email="childone@example.com", role=AccountProfile.ROLE_PLAYER)
+        child_two = self._create_user(email="childtwo@example.com", role=AccountProfile.ROLE_PLAYER)
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_one.profile)
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_two.profile)
+
+        response = self.client.post(
+            reverse("team_management:edit_member", args=[membership.pk]),
+            data={
+                "member_category": "player",
+                "first_name": "Issam",
+                "last_name": "Mourtada",
+                "email": "parentedit@example.com",
+                "phone_number": "+96170000001",
+                "date_of_birth": "1988-12-02",
+                "jersey_number": "",
+                "position": "",
+                "member_title": "Parent",
+                "is_active": "on",
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "Member details were updated successfully.")
+        parent.refresh_from_db()
+        self.assertEqual(parent.first_name, "Issam")
+        self.assertEqual(parent.last_name, "Mourtada")
+        self.assertEqual(str(parent.profile.date_of_birth), "1988-12-02")
+        self.assertIsNone(parent.profile.jersey_number)
+        self.assertEqual(parent.profile.position, "")
+
+        edit_page = self.client.get(reverse("team_management:edit_member", args=[membership.pk]))
+        self.assertContains(edit_page, "Childone User")
+        self.assertContains(edit_page, "Childtwo User")
 
     def test_manager_can_delete_member_from_roster(self):
         manager = self._create_user(
@@ -420,6 +480,171 @@ class TeamManagementTests(TestCase):
         self.assertRedirects(response, reverse("team_management:roster"))
         self.assertFalse(TeamMembership.objects.filter(pk=membership.pk).exists())
         self.assertContains(response, "Player deleted.")
+
+    def test_deleting_parent_from_roster_also_removes_linked_children(self):
+        manager = self._create_user(
+            email="managerdeleteparent@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Harbor Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        parent = self._create_user(email="parentdelete@example.com", role=AccountProfile.ROLE_PARENT)
+        child_one = self._create_user(email="childdelete1@example.com", role=AccountProfile.ROLE_PLAYER)
+        child_two = self._create_user(email="childdelete2@example.com", role=AccountProfile.ROLE_PLAYER)
+
+        parent_membership = TeamMembership.objects.create(user=parent, team=team, member_title="Parent", added_by=manager)
+        child_one_membership = TeamMembership.objects.create(user=child_one, team=team, member_title="Player", added_by=manager)
+        child_two_membership = TeamMembership.objects.create(user=child_two, team=team, member_title="Player", added_by=manager)
+
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_one.profile)
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_two.profile)
+        parent.profile.linked_player = child_one.profile
+        parent.profile.child_name = child_one.get_full_name()
+        parent.profile.save(update_fields=["linked_player", "child_name"])
+
+        response = self.client.post(
+            reverse("team_management:delete_member", args=[parent_membership.pk]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "linked child roster entries")
+        self.assertFalse(TeamMembership.objects.filter(pk=parent_membership.pk).exists())
+        self.assertFalse(TeamMembership.objects.filter(pk=child_one_membership.pk).exists())
+        self.assertFalse(TeamMembership.objects.filter(pk=child_two_membership.pk).exists())
+
+    def test_deleting_already_removed_member_redirects_to_roster(self):
+        manager = self._create_user(
+            email="manageralreadyremoved@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Harbor Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        player = self._create_user(email="alreadyremoved@example.com", role=AccountProfile.ROLE_PLAYER)
+        membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+        membership_id = membership.pk
+        membership.delete()
+
+        response = self.client.post(
+            reverse("team_management:delete_member", args=[membership_id]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "This roster member was already removed.")
+
+    def test_editing_removed_member_redirects_to_roster(self):
+        manager = self._create_user(
+            email="managereditremoved@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Harbor Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        player = self._create_user(email="editremoved@example.com", role=AccountProfile.ROLE_PLAYER)
+        membership = TeamMembership.objects.create(user=player, team=team, member_title="Player", added_by=manager)
+        membership_id = membership.pk
+        membership.delete()
+
+        response = self.client.get(reverse("team_management:edit_member", args=[membership_id]), follow=True)
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "This roster member was already removed.")
+
+    def test_reviewing_removed_request_redirects_to_roster(self):
+        manager = self._create_user(
+            email="managerreviewremoved@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Harbor Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        pending_user = self._create_user(email="reviewremoved@example.com", role=AccountProfile.ROLE_PLAYER)
+        membership = TeamMembership.objects.create(
+            user=pending_user,
+            team=team,
+            member_title="Pending Player",
+            requested_role=AccountProfile.ROLE_PLAYER,
+            status=TeamMembership.STATUS_PENDING,
+            is_active=False,
+        )
+        membership_id = membership.pk
+        membership.delete()
+
+        response = self.client.post(
+            reverse("team_management:review_member_request", args=[membership_id]),
+            data={"action": "approve", "approved_role": AccountProfile.ROLE_PLAYER},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "This membership request was already removed.")
+
+    def test_rejecting_parent_request_also_removes_linked_child_requests(self):
+        manager = self._create_user(
+            email="managerreject@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Orbit Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        parent = self._create_user(email="parentreject@example.com", role=AccountProfile.ROLE_PARENT)
+        child_one = self._create_user(email="childreject1@example.com", role=AccountProfile.ROLE_PLAYER)
+        child_two = self._create_user(email="childreject2@example.com", role=AccountProfile.ROLE_PLAYER)
+
+        parent_membership = TeamMembership.objects.create(
+            user=parent,
+            team=team,
+            member_title="Pending Parent",
+            requested_role=AccountProfile.ROLE_PARENT,
+            status=TeamMembership.STATUS_PENDING,
+            is_active=False,
+        )
+        TeamMembership.objects.create(
+            user=child_one,
+            team=team,
+            member_title="Pending Player",
+            requested_role=AccountProfile.ROLE_PLAYER,
+            status=TeamMembership.STATUS_PENDING,
+            is_active=False,
+        )
+        TeamMembership.objects.create(
+            user=child_two,
+            team=team,
+            member_title="Pending Player",
+            requested_role=AccountProfile.ROLE_PLAYER,
+            status=TeamMembership.STATUS_PENDING,
+            is_active=False,
+        )
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_one.profile)
+        ParentChildLink.objects.create(parent_profile=parent.profile, child_profile=child_two.profile)
+        parent.profile.linked_player = child_one.profile
+        parent.profile.child_name = child_one.get_full_name()
+        parent.profile.save(update_fields=["linked_player", "child_name"])
+
+        response = self.client.post(
+            reverse("team_management:review_member_request", args=[parent_membership.pk]),
+            data={"action": "reject"},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "linked child requests")
+        self.assertFalse(User.objects.filter(email="parentreject@example.com").exists())
+        self.assertFalse(User.objects.filter(email="childreject1@example.com").exists())
+        self.assertFalse(User.objects.filter(email="childreject2@example.com").exists())
 
     def test_staff_can_delete_players_but_not_managers(self):
         manager = self._create_user(

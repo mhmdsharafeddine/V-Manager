@@ -171,6 +171,12 @@
     background: rgba(141, 31, 78, 0.1);
 }
 
+.badge-pink {
+    color: #c2418a;
+    border: 1px solid rgba(194, 65, 138, 0.48);
+    background: rgba(255, 124, 191, 0.12);
+}
+
 .member-status {
     min-height: 24px;
     padding-inline: 11px;
@@ -410,6 +416,11 @@
 .team-primary-button-green {
     background: linear-gradient(90deg, #148d1d, #1ca92b);
     box-shadow: 0 14px 24px rgba(28, 169, 43, 0.18);
+}
+
+.team-primary-button-neutral {
+    background: linear-gradient(90deg, #6b7280, #9ca3af);
+    box-shadow: 0 14px 24px rgba(107, 114, 128, 0.18);
 }
 
 .team-secondary-button {
@@ -701,6 +712,10 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+}
+
+.member-grid-two.is-hidden {
+    display: none;
 }
 
 .team-field {

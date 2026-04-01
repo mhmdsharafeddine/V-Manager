@@ -4,7 +4,7 @@
 {% block title %}V-Manager | Volleyball Club Management{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'core/home.css' %}">
+    <link rel="stylesheet" href="{% static 'core/home.css' %}?v=4">
 {% endblock %}
 
 {% block body_attributes %}
@@ -64,6 +64,8 @@
                             <p>Manage players, coaches, and staff with comprehensive profiles, roles, and permissions.</p>
                             {% if request.user.is_authenticated and not can_access_team_features %}
                                 <span class="button button-primary button-block button-disabled" aria-disabled="true">Inactive Access</span>
+                            {% elif request.user.is_authenticated and not can_view_roster_nav %}
+                                <span class="button button-primary button-block button-disabled" aria-disabled="true">Restricted</span>
                             {% else %}
                                 <a class="button button-primary button-block" href="{% url 'team_management:roster' %}">View Feature</a>
                             {% endif %}
@@ -75,7 +77,7 @@
                         <div class="feature-card-body">
                             <h3>Schedule &amp; Events</h3>
                             <p>Plan practices, games, and tournaments with integrated calendar and automated reminders.</p>
-                            <a class="button button-primary button-block" href="#feature-schedule">View Feature</a>
+                            <a class="button button-primary button-block" href="{% url 'scheduling:home' %}">View Feature</a>
                         </div>
                     </article>
 
@@ -84,7 +86,7 @@
                         <div class="feature-card-body">
                             <h3>Performance Tracking</h3>
                             <p>Track player stats, game results, and team performance metrics in real-time.</p>
-                            <a class="button button-primary button-block" href="#feature-performance">View Feature</a>
+                            <a class="button button-primary button-block" href="{% url 'performance:dashboard' %}">View Feature</a>
                         </div>
                     </article>
 

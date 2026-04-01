@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notifications | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=11">
+{% endblock %}
+
+{% block body_class %}schedule-page{% endblock %}
+
+{% block content %}
+<main class="schedule-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container schedule-heading schedule-heading-row">
+        <div>
+            <h1>Notifications</h1>
+            <p>Review upcoming event alerts, mark them as read, or jump to the event in the calendar.</p>
+        </div>
+        <div class="schedule-heading-actions">
+            <a class="btn btn-secondary btn-link" href="{% url 'home' %}">Back to Home</a>
+            <form method="post" action="{% url 'scheduling:mark_all_notifications_read' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-primary" type="submit" {% if not notification_unread_count %}disabled{% endif %}>Mark all as read</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="container schedule-card notification-page-card">
+        {% if notifications %}
+            <div class="notification-page-list">
+                {% for item in notifications %}
+                    <article class="notify-item {{ item.class_name }}{% if item.is_unread %} is-unread{% endif %}">
+                        <div class="notification-page-main">
+                            <strong>{{ item.title }}</strong>
+                            <p>{{ item.event_title }}</p>
+                            <span>{{ item.when }}</span>
+                        </div>
+                        <div class="notification-page-actions">
+                            <form method="post" class="notification-action-form" action="{% url 'scheduling:open_notification_event' item.event_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ item.source_url }}">
+                                <button class="btn btn-secondary" type="submit">Open Event</button>
+                            </form>
+                            {% if item.is_unread %}
+                                <form method="post" class="notification-action-form" action="{% url 'scheduling:mark_notification_read' item.event_id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="btn btn-ghost" type="submit">Mark as read</button>
+                                </form>
+                            {% else %}
+                                <button class="btn btn-ghost notification-read-button is-read" type="button" disabled aria-disabled="true">Marked as read</button>
+                            {% endif %}
+                            <form method="post" class="notification-action-form" action="{% url 'scheduling:delete_notification' item.event_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button class="btn btn-delete" type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="upcoming-empty">
+                No notifications right now.
+                <a href="{% url 'scheduling:home' %}">Go to calendar</a>
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Event Detail Modal -->
+    <div class="event-detail-modal" data-event-modal>
+        <div class="event-modal-backdrop" data-event-modal-close></div>
+        <div class="event-modal-panel" role="dialog" aria-modal="true">
+            <div class="event-modal-header">
+                <h2 id="event-modal-title">Event Details</h2>
+                <button type="button" class="event-modal-close-btn" data-event-modal-close aria-label="Close">×</button>
+            </div>
+            <div class="event-modal-content" id="event-modal-content">
+                <div style="padding: 20px; text-align: center;">Loading...</div>
+            </div>
+            <div class="event-modal-footer">
+                <button type="button" class="btn btn-secondary" data-event-modal-close>Close</button>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const toasts = document.querySelectorAll(".toast-message");
+        const closeButtons = document.querySelectorAll('[data-event-modal-close]');
+        const openModalButtons = document.querySelectorAll('[data-open-modal]');
+        const modal = document.querySelector('[data-event-modal]');
+        const modalContent = document.getElementById('event-modal-content');
+        const modalTitle = document.getElementById('event-modal-title');
+
+        if (toasts.length) {
+            toasts.forEach((toast, index) => {
+                const dismissToast = () => {
+                    toast.classList.add("toast-hide");
+                    window.setTimeout(() => toast.remove(), 320);
+                };
+
+                window.setTimeout(dismissToast, 2600 + index * 160);
+            });
+        }
+        
+        // Close modal function
+        const closeModal = () => {
+            modal.classList.remove('show');
+        };
+        
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+        
+        // Close when clicking backdrop
+        const backdrop = document.querySelector('.event-modal-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', closeModal);
+        }
+        
+        // Open modal with event details
+        openModalButtons.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const eventId = btn.getAttribute('data-event-id');
+                console.log('Opening event modal for event ID:', eventId);
+                
+                try {
+                    const url = `/scheduling/events/${eventId}/`;
+                    console.log('Fetching from URL:', url);
+                    
+                    const response = await fetch(url);
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    const event = await response.json();
+                    console.log('Event data:', event);
+                    
+                    // Build event details HTML
+                    const eventHTML = `
+                        <div class="event-detail-card">
+                            <div class="event-detail-header">
+                                <h3>${escapeHtml(event.title)}</h3>
+                                <span class="event-badge">${escapeHtml(event.badge)}</span>
+                            </div>
+                            <div class="event-detail-body">
+                                <div class="event-detail-row">
+                                    <strong>When:</strong>
+                                    <span>${escapeHtml(event.when)} @ ${escapeHtml(event.start_time)} - ${escapeHtml(event.end_time)}</span>
+                                </div>
+                                ${event.location ? `
+                                <div class="event-detail-row">
+                                    <strong>Location:</strong>
+                                    <span>${escapeHtml(event.location)}</span>
+                                </div>
+                                ` : ''}
+                                <div class="event-detail-row">
+                                    <strong>Duration:</strong>
+                                    <span>${event.duration_minutes} minutes</span>
+                                </div>
+                                <div class="event-detail-row">
+                                    <strong>Visible To:</strong>
+                                    <span>${escapeHtml(event.audience_label)}</span>
+                                </div>
+                                ${event.attendees_count > 0 ? `
+                                <div class="event-detail-row">
+                                    <strong>Expected Attendees:</strong>
+                                    <span>${event.attendees_count}</span>
+                                </div>
+                                ` : ''}
+                                ${event.details ? `
+                                <div class="event-detail-row">
+                                    <strong>Details:</strong>
+                                    <p>${escapeHtml(event.details)}</p>
+                                </div>
+                                ` : ''}
+                                <div class="event-detail-row">
+                                    <strong>Created by:</strong>
+                                    <span>${escapeHtml(event.created_by)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    modalContent.innerHTML = eventHTML;
+                    modalTitle.textContent = escapeHtml(event.title);
+                    modal.classList.add('show');
+                    
+                    // Mark as read when modal opens
+                    const markReadForm = new FormData();
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    markReadForm.append('csrfmiddlewaretoken', csrfToken);
+                    markReadForm.append('next', window.location.href);
+                    
+                    fetch(`/scheduling/notifications/${eventId}/read/`, {
+                        method: 'POST',
+                        body: markReadForm
+                    }).catch(err => console.error('Failed to mark as read:', err));
+                    
+                } catch (error) {
+                    console.error('Error opening event modal:', error);
+                    modalContent.innerHTML = `<div style="padding: 20px; color: red;">Failed to load event details. Please try again.</div>`;
+                    modal.classList.add('show');
+                }
+            });
+        });
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+    })();
+</script>
+{% endblock %}

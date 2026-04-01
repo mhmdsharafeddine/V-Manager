@@ -4,7 +4,7 @@
 {% block title %}{{ page_title }} | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=10">
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=13">
 {% endblock %}
 
 {% block body_class %}team-page{% endblock %}
@@ -58,6 +58,8 @@
                     <div class="member-segmented-single">
                         {% if form.member_category.value == "staff" %}
                             <span class="member-segmented-single-pill">Staff/Coach</span>
+                        {% elif form.member_title.value == "Parent" %}
+                            <span class="member-segmented-single-pill">Parent</span>
                         {% else %}
                             <span class="member-segmented-single-pill">Player</span>
                         {% endif %}
@@ -103,23 +105,29 @@
                         {{ form.date_of_birth.errors }}
                     </div>
                     <div class="team-field" data-player-only>
-                        <label for="{{ form.jersey_number.id_for_label }}">{{ form.jersey_number.label }}</label>
-                        {{ form.jersey_number }}
-                        {{ form.jersey_number.errors }}
-                    </div>
-                </div>
-
-                <div class="member-grid-two">
-                    <div class="team-field" data-player-only>
-                        <label for="{{ form.position.id_for_label }}">{{ form.position.label }} <span>*</span></label>
-                        {{ form.position }}
-                        {{ form.position.errors }}
-                    </div>
-                    <div class="team-field" data-player-only>
                         <label for="{{ form.member_title.id_for_label }}">{{ form.member_title.label }} <span>*</span></label>
                         {{ form.member_title }}
                         {{ form.member_title.errors }}
                     </div>
+                </div>
+
+                <div class="member-grid-two" data-player-only data-parent-hidden>
+                    <div class="team-field">
+                        <label for="{{ form.jersey_number.id_for_label }}">{{ form.jersey_number.label }}</label>
+                        {{ form.jersey_number }}
+                        {{ form.jersey_number.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.position.id_for_label }}">{{ form.position.label }} <span>*</span></label>
+                        {{ form.position }}
+                        {{ form.position.errors }}
+                    </div>
+                </div>
+
+                <div class="team-field is-hidden" data-player-only data-parent-only>
+                    <label for="{{ form.linked_children.id_for_label }}">{{ form.linked_children.label }}</label>
+                    {{ form.linked_children }}
+                    {{ form.linked_children.errors }}
                 </div>
 
                 <div class="team-field">
@@ -215,6 +223,9 @@
         const buttons = document.querySelectorAll("[data-member-category-value]");
         const segmentedControl = document.querySelector("[data-member-category]");
         const playerOnlyFields = document.querySelectorAll("[data-player-only]");
+        const parentHiddenFields = document.querySelectorAll("[data-parent-hidden]");
+        const parentOnlyFields = document.querySelectorAll("[data-parent-only]");
+        const memberTitleInput = document.getElementById("{{ form.member_title.id_for_label }}");
         const photoInput = document.getElementById("{{ form.profile_photo.id_for_label }}");
         const previewWrap = document.querySelector("[data-upload-preview-wrap]");
         const previewImage = document.querySelector("[data-upload-preview]");
@@ -264,8 +275,15 @@
             }
 
             const isPlayer = categoryInput.value === "player";
+            const isParent = isPlayer && memberTitleInput && memberTitleInput.value === "Parent";
             playerOnlyFields.forEach((field) => {
                 field.classList.toggle("is-hidden", !isPlayer);
+            });
+            parentHiddenFields.forEach((field) => {
+                field.classList.toggle("is-hidden", !isPlayer || isParent);
+            });
+            parentOnlyFields.forEach((field) => {
+                field.classList.toggle("is-hidden", !isPlayer || !isParent);
             });
         };
 
@@ -311,6 +329,9 @@
 
         syncButtons();
         syncActiveState();
+        if (memberTitleInput) {
+            memberTitleInput.addEventListener("change", syncButtons);
+        }
         if (photoInput) {
             photoInput.addEventListener("change", syncPhotoPreview);
             syncPhotoPreview();

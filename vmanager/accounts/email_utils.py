@@ -62,3 +62,22 @@ def send_password_reset_code(request, user):
         fail_silently=False,
     )
     return code
+
+
+def send_membership_rejection_email(user, team_name, rejection_reason=""):
+    """Send email notification to user when membership request is rejected."""
+    message = render_to_string(
+        "accounts/emails/membership_rejection.txt",
+        {
+            "first_name": user.first_name or user.username,
+            "team_name": team_name,
+            "rejection_reason": rejection_reason,
+        },
+    )
+    send_mail(
+        subject="Your Team Request Has Been Rejected",
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )

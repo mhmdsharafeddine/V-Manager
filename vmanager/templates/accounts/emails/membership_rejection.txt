@@ -1,0 +1,12 @@
+Dear {{ first_name }},
+
+Your request to join the team "{{ team_name }}" has been declined.
+
+{% if rejection_reason %}
+Reason: {{ rejection_reason }}
+{% endif %}
+
+If you have any questions or believe this was a mistake, please contact the team management.
+
+Best regards,
+V-Manager Team

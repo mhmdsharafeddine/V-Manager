@@ -30,6 +30,13 @@ class AccountProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     club_name = models.CharField(max_length=150, blank=True)
     child_name = models.CharField(max_length=150, blank=True)
+    linked_player = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_parent",
+    )
     phone_number = models.CharField(max_length=40, blank=True)
     date_of_birth = models.DateField(blank=True, null=True)
     jersey_number = models.PositiveIntegerField(blank=True, null=True)
@@ -49,6 +56,50 @@ class AccountProfile(models.Model):
         first = (self.user.first_name or "")[:1]
         last = (self.user.last_name or "")[:1]
         return (first + last).upper() or (self.user.email[:2].upper())
+
+    def linked_children_profiles(self):
+        children = []
+        child_links = (
+            self.child_links.select_related("child_profile__user").all()
+            if self.pk
+            else []
+        )
+        for link in child_links:
+            if link.child_profile_id and all(child.pk != link.child_profile_id for child in children):
+                children.append(link.child_profile)
+        if self.linked_player_id and all(child.pk != self.linked_player_id for child in children):
+            children.insert(0, self.linked_player)
+        return children
+
+    def primary_linked_child(self):
+        children = self.linked_children_profiles()
+        return children[0] if children else None
+
+
+class ParentChildLink(models.Model):
+    parent_profile = models.ForeignKey(
+        AccountProfile,
+        on_delete=models.CASCADE,
+        related_name="child_links",
+    )
+    child_profile = models.OneToOneField(
+        AccountProfile,
+        on_delete=models.CASCADE,
+        related_name="parent_link",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["parent_profile", "child_profile"],
+                name="uniq_parent_child_link",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_profile} -> {self.child_profile}"
 
 
 class EmailVerificationCode(models.Model):

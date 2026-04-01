@@ -35,22 +35,33 @@
 
         <header class="auth-card-header">
             <h2>Create Your Account</h2>
-            <p>Start your journey with V-Manager!</p>
+            <p>Sign up as a Team Manager (founder) or Team Member.</p>
         </header>
 
         <form method="post" class="auth-form">
             {% csrf_token %}
-            <div class="auth-grid auth-grid-split">
-                <div class="auth-field">
-                    <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} <span>*</span></label>
-                    {{ form.first_name }}
-                    {{ form.first_name.errors }}
-                </div>
-                <div class="auth-field">
-                    <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} <span>*</span></label>
-                    {{ form.last_name }}
-                    {{ form.last_name.errors }}
-                </div>
+            <div class="auth-field">
+                <label for="{{ form.signup_type.id_for_label }}">{{ form.signup_type.label }} <span>*</span></label>
+                {{ form.signup_type }}
+                {{ form.signup_type.errors }}
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} <span>*</span></label>
+                {{ form.first_name }}
+                {{ form.first_name.errors }}
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} <span>*</span></label>
+                {{ form.last_name }}
+                {{ form.last_name.errors }}
+            </div>
+
+            <div class="auth-field">
+                <label for="{{ form.date_of_birth.id_for_label }}">{{ form.date_of_birth.label }} <span>*</span></label>
+                {{ form.date_of_birth }}
+                {{ form.date_of_birth.errors }}
             </div>
 
             <div class="auth-field">
@@ -93,23 +104,197 @@
                 {{ form.password.errors }}
             </div>
 
-            <div class="auth-field">
-                <label for="{{ form.role.id_for_label }}">{{ form.role.label }} <span>*</span></label>
-                {{ form.role }}
-                {{ form.role.errors }}
+            <div class="auth-field auth-conditional {% if form.signup_type.value != 'manager' %}is-hidden{% endif %}" data-signup-field="manager-team">
+                <label for="{{ form.team_name.id_for_label }}">{{ form.team_name.label }} <span>*</span></label>
+                {{ form.team_name }}
+                {{ form.team_name.errors }}
             </div>
 
-            <div class="auth-field auth-conditional {% if form.role.value != 'manager' %}is-hidden{% endif %}" data-role-field="club-info">
-                <label for="{{ form.club_name.id_for_label }}">{{ form.club_name.label }}</label>
-                {{ form.club_name }}
-                {{ form.club_name.errors }}
+            <div class="auth-field auth-conditional {% if form.signup_type.value != 'member' %}is-hidden{% endif %}" data-signup-field="member-team">
+                <label for="{{ form.team.id_for_label }}">{{ form.team.label }} <span>*</span></label>
+                {{ form.team }}
+                {{ form.team.errors }}
             </div>
 
-            <div class="auth-field auth-conditional {% if form.role.value != 'parent' %}is-hidden{% endif %}" data-role-field="child-info">
-                <label for="{{ form.child_name.id_for_label }}">{{ form.child_name.label }}</label>
-                {{ form.child_name }}
-                {{ form.child_name.errors }}
+            <div class="auth-field auth-conditional {% if form.signup_type.value != 'member' %}is-hidden{% endif %}" data-signup-field="member-role">
+                <label for="{{ form.requested_role.id_for_label }}">{{ form.requested_role.label }} <span>*</span></label>
+                {{ form.requested_role }}
+                {{ form.requested_role.errors }}
             </div>
+
+            <section class="auth-linked-player-section auth-conditional {% if form.signup_type.value != 'member' or form.requested_role.value != 'parent' %}is-hidden{% endif %}" data-signup-field="parent-player">
+                <div class="auth-card-header auth-linked-player-header">
+                    <h3>Create Linked Player Accounts</h3>
+                    <p>Each child account will be linked to this parent and automatically join the same team request.</p>
+                </div>
+
+                {{ linked_child_formset.management_form }}
+
+                {% if linked_child_formset.non_form_errors %}
+                    <div class="auth-errors">
+                        {% for error in linked_child_formset.non_form_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="auth-linked-children-list" data-linked-children-list>
+                    {% for child_form in linked_child_formset %}
+                        <article class="auth-linked-child-card{% if child_form.DELETE.value %} is-hidden{% endif %}" data-linked-child-card>
+                            <div class="auth-linked-child-head">
+                                <div class="auth-linked-child-copy">
+                                    <h4>Linked Child <span data-child-index>{{ forloop.counter }}</span></h4>
+                                    <p>This child account stays connected to this parent for team approval and access.</p>
+                                </div>
+                                {{ child_form.DELETE.as_hidden }}
+                                <button type="button" class="auth-linked-child-remove{% if linked_child_formset.total_form_count == 1 %} is-hidden{% endif %}" data-linked-child-remove>
+                                    Remove
+                                </button>
+                            </div>
+
+                            <div class="auth-field">
+                                <label>Linked Player Role</label>
+                                <input type="text" class="auth-input" value="Player" readonly>
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ child_form.first_name.id_for_label }}">{{ child_form.first_name.label }} <span>*</span></label>
+                                {{ child_form.first_name }}
+                                {{ child_form.first_name.errors }}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ child_form.last_name.id_for_label }}">{{ child_form.last_name.label }} <span>*</span></label>
+                                {{ child_form.last_name }}
+                                {{ child_form.last_name.errors }}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ child_form.date_of_birth.id_for_label }}">{{ child_form.date_of_birth.label }} <span>*</span></label>
+                                {{ child_form.date_of_birth }}
+                                {{ child_form.date_of_birth.errors }}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ child_form.email.id_for_label }}">{{ child_form.email.label }} <span>*</span></label>
+                                {{ child_form.email }}
+                                {{ child_form.email.errors }}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ child_form.password.id_for_label }}">{{ child_form.password.label }} <span>*</span></label>
+                                <div class="auth-password-wrap">
+                                    {{ child_form.password }}
+                                    <button
+                                        type="button"
+                                        class="auth-password-toggle"
+                                        data-password-toggle
+                                        data-target="{{ child_form.password.id_for_label }}"
+                                        aria-label="Show password"
+                                        aria-pressed="false"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                            <circle cx="12" cy="12" r="3.2"></circle>
+                                            <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="auth-password-feedback" data-password-feedback data-target="{{ child_form.password.id_for_label }}">
+                                    <div class="auth-password-strength" data-strength="weak">
+                                        <div class="auth-password-strength-head">
+                                            <span>Password strength</span>
+                                            <span class="auth-password-strength-label" data-password-strength-label>Too short</span>
+                                        </div>
+                                        <div class="auth-password-strength-track" aria-hidden="true">
+                                            <div class="auth-password-strength-fill" data-password-strength-fill></div>
+                                        </div>
+                                    </div>
+                                    <div class="auth-hint" data-password-hint>Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
+                                </div>
+                                {{ child_form.password.errors }}
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+
+                <button type="button" class="auth-linked-child-add" data-linked-child-add>
+                    <span aria-hidden="true">+</span>
+                    <span>Add another child</span>
+                </button>
+                <p class="auth-hint auth-linked-player-note">All linked children created here are connected to this parent account and sent to the same team manager for approval.</p>
+            </section>
+
+            <template data-linked-child-template>
+                <article class="auth-linked-child-card" data-linked-child-card>
+                    <div class="auth-linked-child-head">
+                        <div class="auth-linked-child-copy">
+                            <h4>Linked Child <span data-child-index></span></h4>
+                            <p>This child account stays connected to this parent for team approval and access.</p>
+                        </div>
+                        {{ linked_child_formset.empty_form.DELETE.as_hidden }}
+                        <button type="button" class="auth-linked-child-remove" data-linked-child-remove>Remove</button>
+                    </div>
+
+                    <div class="auth-field">
+                        <label>Linked Player Role</label>
+                        <input type="text" class="auth-input" value="Player" readonly>
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="{{ linked_child_formset.empty_form.first_name.id_for_label }}">{{ linked_child_formset.empty_form.first_name.label }} <span>*</span></label>
+                        {{ linked_child_formset.empty_form.first_name }}
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="{{ linked_child_formset.empty_form.last_name.id_for_label }}">{{ linked_child_formset.empty_form.last_name.label }} <span>*</span></label>
+                        {{ linked_child_formset.empty_form.last_name }}
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="{{ linked_child_formset.empty_form.date_of_birth.id_for_label }}">{{ linked_child_formset.empty_form.date_of_birth.label }} <span>*</span></label>
+                        {{ linked_child_formset.empty_form.date_of_birth }}
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="{{ linked_child_formset.empty_form.email.id_for_label }}">{{ linked_child_formset.empty_form.email.label }} <span>*</span></label>
+                        {{ linked_child_formset.empty_form.email }}
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="{{ linked_child_formset.empty_form.password.id_for_label }}">{{ linked_child_formset.empty_form.password.label }} <span>*</span></label>
+                        <div class="auth-password-wrap">
+                            {{ linked_child_formset.empty_form.password }}
+                            <button
+                                type="button"
+                                class="auth-password-toggle"
+                                data-password-toggle
+                                data-target="{{ linked_child_formset.empty_form.password.id_for_label }}"
+                                aria-label="Show password"
+                                aria-pressed="false"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                    <circle cx="12" cy="12" r="3.2"></circle>
+                                    <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="auth-password-feedback" data-password-feedback data-target="{{ linked_child_formset.empty_form.password.id_for_label }}">
+                            <div class="auth-password-strength" data-strength="weak">
+                                <div class="auth-password-strength-head">
+                                    <span>Password strength</span>
+                                    <span class="auth-password-strength-label" data-password-strength-label>Too short</span>
+                                </div>
+                                <div class="auth-password-strength-track" aria-hidden="true">
+                                    <div class="auth-password-strength-fill" data-password-strength-fill></div>
+                                </div>
+                            </div>
+                            <div class="auth-hint" data-password-hint>Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
+                        </div>
+                    </div>
+                </article>
+            </template>
 
             <button type="submit" class="auth-submit">Create Account <span aria-hidden="true">-&gt;</span></button>
             <p class="auth-switch">Already have an account? <a href="{% url 'accounts:login' %}">Sign In</a></p>
@@ -119,12 +304,16 @@
 
 <script>
     (() => {
-        const roleSelect = document.getElementById("{{ form.role.id_for_label }}");
-        const clubFields = document.querySelectorAll('[data-role-field="club-info"]');
-        const childFields = document.querySelectorAll('[data-role-field="child-info"]');
-        const rolesThatNeedClubInfo = new Set(["manager"]);
-        const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
-        const passwordFeedbackItems = document.querySelectorAll("[data-password-feedback]");
+        const signupTypeSelect = document.getElementById("{{ form.signup_type.id_for_label }}");
+        const managerFields = document.querySelectorAll('[data-signup-field="manager-team"]');
+        const memberTeamFields = document.querySelectorAll('[data-signup-field="member-team"]');
+        const memberRoleFields = document.querySelectorAll('[data-signup-field="member-role"]');
+        const parentPlayerFields = document.querySelectorAll('[data-signup-field="parent-player"]');
+        const requestedRoleSelect = document.getElementById("{{ form.requested_role.id_for_label }}");
+        const linkedChildrenList = document.querySelector("[data-linked-children-list]");
+        const linkedChildTemplate = document.querySelector("[data-linked-child-template]");
+        const addLinkedChildButton = document.querySelector("[data-linked-child-add]");
+        const totalChildFormsInput = document.getElementById("id_children-TOTAL_FORMS");
 
         const evaluatePassword = (value) => {
             const checks = [
@@ -180,7 +369,10 @@
             };
         };
 
-        passwordFeedbackItems.forEach((item) => {
+        const setupPasswordFeedback = (item) => {
+            if (!item || item.dataset.bound === "true") {
+                return;
+            }
             const target = document.getElementById(item.dataset.target);
             const fill = item.querySelector("[data-password-strength-fill]");
             const label = item.querySelector("[data-password-strength-label]");
@@ -203,27 +395,13 @@
 
             syncPasswordStrength();
             target.addEventListener("input", syncPasswordStrength);
-        });
+            item.dataset.bound = "true";
+        };
 
-        if (roleSelect) {
-            const syncRoleFields = () => {
-                const showClubFields = rolesThatNeedClubInfo.has(roleSelect.value);
-                const showChildFields = roleSelect.value === "parent";
-
-                clubFields.forEach((field) => {
-                    field.classList.toggle("is-hidden", !showClubFields);
-                });
-
-                childFields.forEach((field) => {
-                    field.classList.toggle("is-hidden", !showChildFields);
-                });
-            };
-
-            syncRoleFields();
-            roleSelect.addEventListener("change", syncRoleFields);
-        }
-
-        passwordToggleButtons.forEach((button) => {
+        const setupPasswordToggle = (button) => {
+            if (!button || button.dataset.bound === "true") {
+                return;
+            }
             const target = document.getElementById(button.dataset.target);
             if (!target) {
                 return;
@@ -236,7 +414,106 @@
                 button.setAttribute("aria-pressed", showPassword ? "true" : "false");
                 button.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
             });
-        });
+            button.dataset.bound = "true";
+        };
+
+        const refreshLinkedChildCards = () => {
+            if (!linkedChildrenList) {
+                return;
+            }
+
+            const visibleCards = Array.from(linkedChildrenList.querySelectorAll("[data-linked-child-card]"))
+                .filter((card) => !card.classList.contains("is-hidden"));
+
+            visibleCards.forEach((card, index) => {
+                card.querySelectorAll("[data-child-index]").forEach((item) => {
+                    item.textContent = index + 1;
+                });
+                const removeButton = card.querySelector("[data-linked-child-remove]");
+                if (removeButton) {
+                    removeButton.classList.toggle("is-hidden", visibleCards.length <= 1);
+                }
+            });
+        };
+
+        const bindLinkedChildCard = (card) => {
+            if (!card) {
+                return;
+            }
+
+            card.querySelectorAll("[data-password-feedback]").forEach(setupPasswordFeedback);
+            card.querySelectorAll("[data-password-toggle]").forEach(setupPasswordToggle);
+
+            const removeButton = card.querySelector("[data-linked-child-remove]");
+            const deleteInput = card.querySelector('input[name$="-DELETE"]');
+            if (removeButton && removeButton.dataset.bound !== "true") {
+                removeButton.addEventListener("click", () => {
+                    if (deleteInput) {
+                        deleteInput.checked = true;
+                    }
+                    card.classList.add("is-hidden");
+                    refreshLinkedChildCards();
+                });
+                removeButton.dataset.bound = "true";
+            }
+        };
+
+        document.querySelectorAll("[data-password-feedback]").forEach(setupPasswordFeedback);
+        document.querySelectorAll("[data-password-toggle]").forEach(setupPasswordToggle);
+
+        if (linkedChildrenList) {
+            linkedChildrenList.querySelectorAll("[data-linked-child-card]").forEach((card) => {
+                const deleteInput = card.querySelector('input[name$="-DELETE"]');
+                if (deleteInput && deleteInput.checked) {
+                    card.classList.add("is-hidden");
+                }
+                bindLinkedChildCard(card);
+            });
+            refreshLinkedChildCards();
+        }
+
+        if (signupTypeSelect) {
+            const syncSignupFields = () => {
+                const isManager = signupTypeSelect.value === "manager";
+                const isMember = signupTypeSelect.value === "member";
+                const isParentSignup = isMember && requestedRoleSelect && requestedRoleSelect.value === "parent";
+
+                managerFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !isManager);
+                });
+
+                memberTeamFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !isMember);
+                });
+
+                memberRoleFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !isMember);
+                });
+
+                parentPlayerFields.forEach((field) => {
+                    field.classList.toggle("is-hidden", !isParentSignup);
+                });
+            };
+
+            syncSignupFields();
+            signupTypeSelect.addEventListener("change", syncSignupFields);
+            if (requestedRoleSelect) {
+                requestedRoleSelect.addEventListener("change", syncSignupFields);
+            }
+        }
+
+        if (addLinkedChildButton && linkedChildTemplate && linkedChildrenList && totalChildFormsInput) {
+            addLinkedChildButton.addEventListener("click", () => {
+                const nextIndex = Number(totalChildFormsInput.value || "0");
+                const html = linkedChildTemplate.innerHTML.replaceAll("__prefix__", String(nextIndex));
+                linkedChildrenList.insertAdjacentHTML("beforeend", html);
+                totalChildFormsInput.value = String(nextIndex + 1);
+                const cards = linkedChildrenList.querySelectorAll("[data-linked-child-card]");
+                const card = cards[cards.length - 1];
+                bindLinkedChildCard(card);
+                refreshLinkedChildCards();
+            });
+        }
     })();
 </script>
 {% endblock %}

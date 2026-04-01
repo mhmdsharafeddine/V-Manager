@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from accounts.email_utils import send_membership_rejection_email
 from accounts.models import AccountProfile
 
 from .access import can_access_team_features, get_team_role, is_inactive_team_member
@@ -19,7 +22,16 @@ DELETE_ROSTER_ROLES = {
     AccountProfile.ROLE_STAFF,
     AccountProfile.ROLE_MANAGER,
 }
-VIEW_ROSTER_ROLES = MANAGE_ROSTER_ROLES | {AccountProfile.ROLE_PLAYER}
+VIEW_ROSTER_ROLES = MANAGE_ROSTER_ROLES | {
+    AccountProfile.ROLE_PLAYER,
+    AccountProfile.ROLE_PARENT,
+}
+REVIEW_ASSIGNABLE_ROLES = {
+    AccountProfile.ROLE_PLAYER,
+    AccountProfile.ROLE_PARENT,
+    AccountProfile.ROLE_COACH,
+    AccountProfile.ROLE_STAFF,
+}
 
 
 def _get_role(user):
@@ -32,7 +44,7 @@ def _default_member_title(role):
         AccountProfile.ROLE_STAFF: "Staff",
         AccountProfile.ROLE_MANAGER: "Team Manager",
         AccountProfile.ROLE_PLAYER: "Player",
-        AccountProfile.ROLE_PARENT: "Player",
+        AccountProfile.ROLE_PARENT: "Parent",
     }.get(role, "Member")
 
 
@@ -40,6 +52,8 @@ def _badge_class(role, title):
     title_lower = (title or "").lower()
     if "captain" in title_lower:
         return "badge-purple"
+    if role == AccountProfile.ROLE_PARENT:
+        return "badge-pink"
     if role == AccountProfile.ROLE_COACH:
         return "badge-gold"
     if role == AccountProfile.ROLE_MANAGER:
@@ -125,11 +139,7 @@ def _can_view_roster(user):
     if not can_access_team_features(user):
         return False
     role = _get_role(user)
-    if role == AccountProfile.ROLE_MANAGER:
-        return True
-    if role in VIEW_ROSTER_ROLES:
-        return True
-    return role == AccountProfile.ROLE_PARENT and getattr(user, "team_membership", None) is not None
+    return role in VIEW_ROSTER_ROLES
 
 
 def _inactive_access_response(request):
@@ -178,12 +188,15 @@ def _resolve_team_for_user(user):
 def _serialize_membership(membership, *, viewer=None):
     user = membership.user
     profile = user.profile
-    is_parent_player = profile.role == AccountProfile.ROLE_PARENT
-    if is_parent_player:
-        display_name = profile.child_name or user.get_full_name() or user.email
+    display_name = user.get_full_name() or user.email
+    subtitle = profile.position or profile.get_role_display()
+    if membership.status == TeamMembership.STATUS_PENDING:
+        status_label = "Pending Approval"
+    elif membership.status == TeamMembership.STATUS_REJECTED:
+        status_label = "Rejected"
     else:
-        display_name = user.get_full_name() or user.email
-    subtitle = profile.position or ("Player" if is_parent_player else profile.get_role_display())
+        status_label = "Active" if membership.is_active else "Inactive"
+
     return {
         "membership": membership,
         "user": user,
@@ -191,14 +204,19 @@ def _serialize_membership(membership, *, viewer=None):
         "avatar_url": profile.profile_photo.url if profile.profile_photo else "",
         "initials": profile.initials,
         "display_name": display_name,
-        "display_title": membership.member_title or profile.get_role_display(),
+        "display_title": "Parent" if profile.role == AccountProfile.ROLE_PARENT else (membership.member_title or profile.get_role_display()),
         "badge_class": _badge_class(profile.role, membership.member_title),
-        "status_label": "Active" if membership.is_active else "Inactive",
+        "status_label": status_label,
+        "requested_role_label": _requested_role_label(membership.requested_role),
         "permissions": _permission_labels(profile.role, membership.member_title),
         "subtitle": subtitle,
         "can_edit": _can_edit_member(viewer, membership) if viewer is not None else False,
         "can_delete": _can_delete_member(viewer, membership) if viewer is not None else False,
     }
+
+
+def _requested_role_label(role_value):
+    return dict(AccountProfile.ROLE_CHOICES).get(role_value, (role_value or "member").title())
 
 
 def _summary_cards(team):
@@ -245,7 +263,9 @@ def _summary_cards(team):
 
 def _apply_member_type_filter(memberships, member_type_filter):
     if member_type_filter == "players":
-        return memberships.filter(user__profile__role__in=[AccountProfile.ROLE_PLAYER, AccountProfile.ROLE_PARENT])
+        return memberships.filter(user__profile__role=AccountProfile.ROLE_PLAYER)
+    if member_type_filter == "parents":
+        return memberships.filter(user__profile__role=AccountProfile.ROLE_PARENT)
     if member_type_filter == "captains":
         return memberships.filter(member_title__icontains="captain")
     if member_type_filter == "coaches":
@@ -274,9 +294,10 @@ def _base_team_context(*, request, team):
         status_filter = "all"
     if sort_filter not in {"alphabetical", "newest", "oldest"}:
         sort_filter = "alphabetical"
-    if member_type_filter not in {"all", "players", "captains", "coaches", "staff", "managers"}:
+    if member_type_filter not in {"all", "players", "parents", "captains", "coaches", "staff", "managers"}:
         member_type_filter = "all"
     memberships = team.memberships.select_related("user__profile")
+    memberships = memberships.exclude(status=TeamMembership.STATUS_PENDING)
     if status_filter == "active":
         memberships = memberships.filter(is_active=True)
     elif status_filter == "inactive":
@@ -292,6 +313,14 @@ def _base_team_context(*, request, team):
     memberships = _apply_member_type_filter(memberships, member_type_filter)
     memberships = _apply_sort(memberships, sort_filter)
     recent_members = team.memberships.select_related("user__profile").order_by("-joined_at")[:3]
+    pending_memberships = []
+    if _can_manage_roster(request.user):
+        pending_memberships = list(
+            team.memberships.select_related("user__profile")
+            .filter(status=TeamMembership.STATUS_PENDING)
+            .order_by("joined_at", "user__email")
+        )
+
     return {
         "team": team,
         "query": query,
@@ -301,8 +330,51 @@ def _base_team_context(*, request, team):
         "members": [_serialize_membership(membership, viewer=request.user) for membership in memberships],
         "summary_cards": _summary_cards(team),
         "recent_members": [_serialize_membership(membership, viewer=request.user) for membership in recent_members],
+        "pending_requests": [_serialize_membership(membership, viewer=request.user) for membership in pending_memberships],
+        "review_assignable_roles": [
+            (role, label)
+            for role, label in AccountProfile.ROLE_CHOICES
+            if role in REVIEW_ASSIGNABLE_ROLES
+        ],
         "can_manage": _can_manage_roster(request.user),
     }
+
+
+def _pending_linked_child_users_for_parent_membership(membership):
+    profile = getattr(membership.user, "profile", None)
+    if not profile or profile.role != AccountProfile.ROLE_PARENT:
+        return []
+
+    child_users = []
+    for child_profile in profile.linked_children_profiles():
+        child_user = getattr(child_profile, "user", None)
+        child_membership = getattr(child_user, "team_membership", None) if child_user else None
+        if (
+            child_user
+            and child_membership
+            and child_membership.team_id == membership.team_id
+            and child_membership.status in {TeamMembership.STATUS_PENDING, TeamMembership.STATUS_REJECTED}
+        ):
+            child_users.append(child_user)
+    return child_users
+
+
+def _linked_child_memberships_for_parent_membership(membership):
+    profile = getattr(membership.user, "profile", None)
+    if not profile or profile.role != AccountProfile.ROLE_PARENT:
+        return []
+
+    child_memberships = []
+    for child_profile in profile.linked_children_profiles():
+        child_user = getattr(child_profile, "user", None)
+        child_membership = getattr(child_user, "team_membership", None) if child_user else None
+        if (
+            child_membership
+            and child_membership.team_id == membership.team_id
+            and child_membership.pk != membership.pk
+        ):
+            child_memberships.append(child_membership)
+    return child_memberships
 
 
 @login_required
@@ -319,11 +391,17 @@ def roster_view(request):
         "team": team,
         "can_manage": can_manage,
         "members": [],
+        "pending_requests": [],
         "summary_cards": [],
         "query": "",
         "status_filter": "all",
         "sort_filter": "alphabetical",
         "member_type_filter": "all",
+        "review_assignable_roles": [
+            (role, label)
+            for role, label in AccountProfile.ROLE_CHOICES
+            if role in REVIEW_ASSIGNABLE_ROLES
+        ],
     }
     if team is None:
         messages.info(request, "You are not assigned to a team yet.")
@@ -377,11 +455,14 @@ def edit_member_view(request, membership_id):
         messages.error(request, "You must belong to a team before you can edit its roster.")
         return _access_denied_redirect(request.user)
 
-    membership = get_object_or_404(
-        TeamMembership.objects.select_related("user__profile", "team"),
-        pk=membership_id,
-        team=team,
+    membership = (
+        TeamMembership.objects.select_related("user__profile", "team")
+        .filter(pk=membership_id, team=team)
+        .first()
     )
+    if membership is None:
+        messages.error(request, "This roster member was already removed.")
+        return redirect("team_management:roster")
 
     if not _can_edit_member(request.user, membership):
         if _get_role(request.user) == AccountProfile.ROLE_COACH:
@@ -425,11 +506,14 @@ def delete_member_view(request, membership_id):
         messages.error(request, "You must belong to a team before you can remove roster members.")
         return _access_denied_redirect(request.user)
 
-    membership = get_object_or_404(
-        TeamMembership.objects.select_related("user__profile", "team"),
-        pk=membership_id,
-        team=team,
+    membership = (
+        TeamMembership.objects.select_related("user__profile", "team")
+        .filter(pk=membership_id, team=team)
+        .first()
     )
+    if membership is None:
+        messages.error(request, "This roster member was already removed.")
+        return redirect("team_management:roster")
 
     actor_role = _get_role(request.user)
     if actor_role not in DELETE_ROSTER_ROLES:
@@ -445,6 +529,107 @@ def delete_member_view(request, membership_id):
         return redirect("team_management:roster")
 
     feedback_label = _member_feedback_label(membership)
-    membership.delete()
-    messages.success(request, f"{feedback_label} deleted.")
+    linked_child_memberships = _linked_child_memberships_for_parent_membership(membership)
+
+    with transaction.atomic():
+        for child_membership in linked_child_memberships:
+            child_membership.delete()
+        membership.delete()
+
+    if linked_child_memberships:
+        child_count = len(linked_child_memberships)
+        messages.success(
+            request,
+            f"{feedback_label} deleted. {child_count} linked child roster entr{'ies' if child_count != 1 else 'y'} were also removed.",
+        )
+    else:
+        messages.success(request, f"{feedback_label} deleted.")
+    return redirect("team_management:roster")
+
+
+@login_required
+@require_POST
+def review_membership_request_view(request, membership_id):
+    if is_inactive_team_member(request.user):
+        return _inactive_access_response(request)
+    if _get_role(request.user) not in MANAGE_ROSTER_ROLES:
+        messages.error(request, "Only coaches, staff, and managers can review requests.")
+        return _access_denied_redirect(request.user)
+
+    team = _resolve_team_for_user(request.user)
+    if team is None:
+        messages.error(request, "You must belong to a team before reviewing requests.")
+        return _access_denied_redirect(request.user)
+
+    membership = (
+        TeamMembership.objects.select_related("user__profile", "team")
+        .filter(pk=membership_id, team=team)
+        .first()
+    )
+    if membership is None:
+        messages.error(request, "This membership request was already removed.")
+        return redirect("team_management:roster")
+
+    action = (request.POST.get("action") or "").strip().lower()
+    if membership.status not in {TeamMembership.STATUS_PENDING, TeamMembership.STATUS_REJECTED}:
+        messages.error(request, "This request is no longer pending review.")
+        return redirect("team_management:roster")
+
+    if action == "approve":
+        approved_role = (request.POST.get("approved_role") or "").strip()
+        if approved_role not in REVIEW_ASSIGNABLE_ROLES:
+            messages.error(request, "Please choose a valid role for approval.")
+            return redirect("team_management:roster")
+
+        membership.user.profile.role = approved_role
+        membership.user.profile.save(update_fields=["role"])
+
+        membership.status = TeamMembership.STATUS_APPROVED
+        membership.is_active = True
+        membership.member_title = _default_member_title(approved_role)
+        membership.rejection_reason = ""
+        membership.reviewed_by = request.user
+        membership.reviewed_at = timezone.now()
+        membership.save(
+            update_fields=[
+                "status",
+                "is_active",
+                "member_title",
+                "rejection_reason",
+                "reviewed_by",
+                "reviewed_at",
+            ]
+        )
+        messages.success(request, "Membership request approved.")
+        return redirect("team_management:roster")
+
+    if action == "reject":
+        reason = (request.POST.get("rejection_reason") or "").strip()
+        user_to_delete = membership.user
+        team_name = membership.team.name
+        linked_child_users = _pending_linked_child_users_for_parent_membership(membership)
+
+        users_to_delete = [user_to_delete, *[user for user in linked_child_users if user.pk != user_to_delete.pk]]
+        child_count = max(0, len(users_to_delete) - 1)
+
+        for rejected_user in users_to_delete:
+            try:
+                send_membership_rejection_email(rejected_user, team_name, reason)
+            except Exception as e:
+                messages.warning(request, f"Request rejected, but failed to send email: {str(e)}")
+
+        with transaction.atomic():
+            for rejected_user in users_to_delete:
+                rejected_user.delete()
+
+        if child_count:
+            messages.success(
+                request,
+                f"Membership request rejected. The parent account and {child_count} linked child request{'s' if child_count != 1 else ''} were also removed.",
+            )
+        else:
+            messages.success(request, "Membership request rejected and account deleted.")
+        return redirect("team_management:roster")
+
+    messages.error(request, "Invalid review action.")
     return redirect("team_management:roster")

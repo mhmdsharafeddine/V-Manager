@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Input Performance Data | V-Manager{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=5">
+{% endblock %}
+
+{% block body_class %}performance-page{% endblock %}
+
+{% block content %}
+<main class="performance-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container performance-head">
+        <div>
+            <h1>{{ form_title|default:"Input Performance Data" }}</h1>
+            <p>{{ form_subtitle|default:"Save event-linked player performance entries." }}</p>
+        </div>
+        <div class="performance-actions">
+            <a class="button button-outline" href="{% url 'performance:dashboard' %}">Back to Dashboard</a>
+        </div>
+    </section>
+
+    <section class="container perf-form-card">
+        {% if form.non_field_errors %}
+            <div class="team-errors">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="perf-form-grid">
+            {% csrf_token %}
+
+            <div class="perf-grid-two">
+                <div class="team-field perf-event-field {% if not is_edit and not form.member.value %}is-hidden-display{% endif %}" id="perf-event-field-wrap">
+                    <label for="{{ form.event.id_for_label }}">{{ form.event.label }} <span>*</span></label>
+                    {{ form.event }}
+                    {{ form.event.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.member.id_for_label }}">{{ form.member.label }} <span>*</span></label>
+                    {{ form.member }}
+                    {{ form.member.errors }}
+                    {% if not is_edit %}
+                        <small class="team-field-hint">After selecting a player, only unrated events for that player will appear.</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="perf-grid-two">
+                <div class="team-field">
+                    <label for="{{ form.result.id_for_label }}">{{ form.result.label }}</label>
+                    {{ form.result }}
+                    {{ form.result.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.participation_status.id_for_label }}">{{ form.participation_status.label }}</label>
+                    {{ form.participation_status }}
+                    {{ form.participation_status.errors }}
+                </div>
+            </div>
+
+            <div class="perf-grid-two injury-status-row{% if form.participation_status.value != 'injured' %} is-hidden-display{% endif %}" data-injury-status-row>
+                <div class="team-field">
+                    <label for="{{ form.injury_status.id_for_label }}">Injury status</label>
+                    {{ form.injury_status }}
+                    {{ form.injury_status.errors }}
+                </div>
+            </div>
+
+            <div class="perf-grid-two">
+                <div class="team-field perf-checkbox-field">
+                    <label for="{{ form.target_achieved.id_for_label }}">{{ form.target_achieved.label }}</label>
+                    {{ form.target_achieved }}
+                    {{ form.target_achieved.errors }}
+                </div>
+            </div>
+
+            <div class="perf-grid-three">
+                <div class="team-field">
+                    <label for="{{ form.points_scored.id_for_label }}">{{ form.points_scored.label }}</label>
+                    {{ form.points_scored }}
+                    {{ form.points_scored.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.points_conceded.id_for_label }}">{{ form.points_conceded.label }}</label>
+                    {{ form.points_conceded }}
+                    {{ form.points_conceded.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.target_score.id_for_label }}">{{ form.target_score.label }}</label>
+                    {{ form.target_score }}
+                    {{ form.target_score.errors }}
+                </div>
+            </div>
+
+            <div class="perf-grid-five">
+                <div class="team-field">
+                    <label for="{{ form.kills.id_for_label }}">{{ form.kills.label }}</label>
+                    {{ form.kills }}
+                    {{ form.kills.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.aces.id_for_label }}">{{ form.aces.label }}</label>
+                    {{ form.aces }}
+                    {{ form.aces.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.blocks.id_for_label }}">{{ form.blocks.label }}</label>
+                    {{ form.blocks }}
+                    {{ form.blocks.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.assists.id_for_label }}">{{ form.assists.label }}</label>
+                    {{ form.assists }}
+                    {{ form.assists.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.digs.id_for_label }}">{{ form.digs.label }}</label>
+                    {{ form.digs }}
+                    {{ form.digs.errors }}
+                </div>
+            </div>
+
+            <div class="perf-grid-two">
+                <div class="team-field">
+                    <label for="{{ form.unforced_errors.id_for_label }}">{{ form.unforced_errors.label }}</label>
+                    {{ form.unforced_errors }}
+                    {{ form.unforced_errors.errors }}
+                </div>
+                <div class="team-field">
+                    <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                    {{ form.notes }}
+                    {{ form.notes.errors }}
+                </div>
+            </div>
+
+            <div class="perf-form-actions">
+                <button type="submit" class="button button-accent">{{ submit_label|default:"Save Record" }}</button>
+                <a href="{% url 'performance:dashboard' %}" class="button button-outline">Cancel</a>
+            </div>
+        </form>
+    </section>
+</main>
+
+<script>
+(() => {
+    const participationStatusInput = document.getElementById("id_participation_status");
+    const injuryStatusRow = document.querySelector("[data-injury-status-row]");
+    const injuryStatusInput = document.getElementById("id_injury_status");
+    const syncInjuryVisibility = () => {
+        if (!participationStatusInput || !injuryStatusRow) {
+            return;
+        }
+        const showInjuryDetails = participationStatusInput.value === "injured";
+        injuryStatusRow.classList.toggle("is-hidden-display", !showInjuryDetails);
+        if (!showInjuryDetails && injuryStatusInput) {
+            injuryStatusInput.value = "";
+        }
+    };
+
+    syncInjuryVisibility();
+
+    if (participationStatusInput) {
+        participationStatusInput.addEventListener("change", syncInjuryVisibility);
+    }
+
+    const memberSelect = document.getElementById("id_member");
+    const eventWrap = document.getElementById("perf-event-field-wrap");
+    if (!memberSelect) {
+        return;
+    }
+
+    const syncEventVisibility = () => {
+        if (!eventWrap) {
+            return;
+        }
+        eventWrap.classList.toggle("is-hidden-display", !memberSelect.value);
+    };
+
+    syncEventVisibility();
+
+    memberSelect.addEventListener("change", () => {
+        syncEventVisibility();
+        const url = new URL(window.location.href);
+        if (memberSelect.value) {
+            url.searchParams.set("member", memberSelect.value);
+        } else {
+            url.searchParams.delete("member");
+        }
+        window.location.href = url.toString();
+    });
+})();
+</script>
+{% endblock %}

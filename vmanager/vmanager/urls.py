@@ -25,6 +25,8 @@ urlpatterns = [
     path('', include('core.urls')),
     path('auth/', include('accounts.urls')),
     path('team/', include('team_management.urls')),
+    path('schedule/', include('scheduling.urls')),
+    path('performance/', include('performance.urls')),
 ]
 
 if settings.DEBUG:

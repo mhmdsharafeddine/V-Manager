@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Account Settings | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'accounts/auth.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'accounts/settings.css' %}?v=7">
+{% endblock %}
+
+{% block body_class %}settings-page{% endblock %}
+
+{% block content %}
+<main class="settings-shell container">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="settings-hero">
+        <div>
+            <p class="settings-kicker">Account Settings</p>
+            <h1>Manage your profile and security.</h1>
+            <p>Update your contact details, password, and account photo from one place.</p>
+        </div>
+    </section>
+
+    <section class="settings-layout">
+        <section class="settings-overview">
+            <section class="settings-card settings-profile-card">
+                <div class="settings-profile-head">
+                    {% if profile and profile.profile_photo %}
+                        <img src="{{ profile.profile_photo.url }}" alt="{{ request.user.get_full_name|default:request.user.email }}" class="settings-avatar-image">
+                    {% else %}
+                        <div class="settings-avatar-fallback">{{ profile.initials|default:request.user.email|slice:":2"|upper }}</div>
+                    {% endif %}
+                    <div class="settings-profile-copy">
+                        <h2>{{ request.user.get_full_name|default:request.user.email }}</h2>
+                        <div class="settings-profile-meta">
+                            <p>{{ profile.get_role_display|default:"Member" }}</p>
+                            {% if membership %}
+                                <span class="settings-status-pill {% if membership.is_active %}is-active{% else %}is-inactive{% endif %}">
+                                    {% if membership.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            {% elif request.user.is_active %}
+                                <span class="settings-status-pill is-active">Active</span>
+                            {% else %}
+                                <span class="settings-status-pill is-inactive">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <dl class="settings-summary-list">
+                    <div>
+                        <dt>Email</dt>
+                        <dd>{{ request.user.email }}</dd>
+                    </div>
+                    <div>
+                        <dt>Team</dt>
+                        <dd>{{ team_name|default:"No team assigned" }}</dd>
+                    </div>
+                    <div>
+                        <dt>Membership</dt>
+                        <dd>{{ membership.get_status_display|default:"Active account" }}</dd>
+                    </div>
+                    <div>
+                        <dt>Joined</dt>
+                        <dd>{{ profile.created_at|date:"M d, Y"|default:"-" }}</dd>
+                    </div>
+                    {% if profile and profile.club_name %}
+                        <div>
+                            <dt>Club</dt>
+                            <dd>{{ profile.club_name }}</dd>
+                        </div>
+                    {% endif %}
+                </dl>
+            </section>
+
+            {% if linked_children %}
+                <section class="settings-card settings-linked-card">
+                    <h2>Linked Children</h2>
+                    <p>These player accounts stay connected to your parent account.</p>
+                    <div class="settings-linked-list">
+                        {% for child in linked_children %}
+                            <article class="settings-linked-item">
+                                <strong>{{ child.user.get_full_name|default:child.user.email }}</strong>
+                                <span>{{ child.user.email }}</span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+        </section>
+
+        <form method="post" enctype="multipart/form-data" class="settings-card settings-form-card">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="settings-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="settings-section-header">
+                <div>
+                    <h2>Profile Details</h2>
+                    <p>Keep your account information up to date.</p>
+                </div>
+                <button type="submit" class="settings-save-button">Save Changes</button>
+            </div>
+
+            <div class="settings-grid settings-grid-split">
+                <div class="settings-field">
+                    <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {{ form.first_name.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {{ form.last_name.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {{ form.email.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+                    {{ form.phone_number }}
+                    {{ form.phone_number.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.date_of_birth.id_for_label }}">{{ form.date_of_birth.label }}</label>
+                    {{ form.date_of_birth }}
+                    {{ form.date_of_birth.errors }}
+                </div>
+                <div class="settings-field settings-field-photo">
+                    <label for="{{ form.profile_photo.id_for_label }}">{{ form.profile_photo.label }}</label>
+                    <label class="upload-shell settings-upload-shell{% if profile and profile.profile_photo %} is-filled{% endif %}" for="{{ form.profile_photo.id_for_label }}" data-upload-shell>
+                        <span class="upload-preview {% if not profile or not profile.profile_photo %}is-hidden{% endif %}" data-upload-preview-wrap>
+                            <img
+                                src="{% if profile and profile.profile_photo %}{{ profile.profile_photo.url }}{% endif %}"
+                                alt="Selected profile photo preview"
+                                data-upload-preview
+                            >
+                        </span>
+                        <span class="upload-placeholder {% if profile and profile.profile_photo %}is-hidden{% endif %}" data-upload-placeholder>
+                            <span class="upload-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M12 16V5"></path>
+                                    <path d="M8 9l4-4 4 4"></path>
+                                    <path d="M5 15v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"></path>
+                                </svg>
+                            </span>
+                            <span data-upload-label>{% if profile and profile.profile_photo %}Change profile photo{% else %}Upload profile photo{% endif %}</span>
+                        </span>
+                    </label>
+                    {{ form.profile_photo }}
+                    {{ form.profile_photo.errors }}
+                    <label class="settings-checkbox">
+                        {{ form.remove_profile_photo }}
+                        <span>Remove current photo</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-divider"></div>
+
+            <div class="settings-section-header settings-section-header-tight">
+                <div>
+                    <h2>Security</h2>
+                    <p>Leave these blank if you do not want to change your password.</p>
+                </div>
+            </div>
+
+            <div class="settings-grid settings-security-grid">
+                <div class="settings-field">
+                    <label for="{{ form.current_password.id_for_label }}">{{ form.current_password.label }}</label>
+                    <div class="auth-password-wrap">
+                        {{ form.current_password }}
+                        <button
+                            type="button"
+                            class="auth-password-toggle"
+                            data-password-toggle
+                            data-target="{{ form.current_password.id_for_label }}"
+                            aria-label="Show current password"
+                            aria-pressed="false"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                                <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {{ form.current_password.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.new_password1.id_for_label }}">{{ form.new_password1.label }}</label>
+                    <div class="auth-password-wrap">
+                        {{ form.new_password1 }}
+                        <button
+                            type="button"
+                            class="auth-password-toggle"
+                            data-password-toggle
+                            data-target="{{ form.new_password1.id_for_label }}"
+                            aria-label="Show new password"
+                            aria-pressed="false"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                                <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="auth-password-feedback" data-password-feedback data-target="{{ form.new_password1.id_for_label }}">
+                        <div class="auth-password-strength" data-strength="weak">
+                            <div class="auth-password-strength-head">
+                                <span>Password strength</span>
+                                <span class="auth-password-strength-label" data-password-strength-label>Too short</span>
+                            </div>
+                            <div class="auth-password-strength-track" aria-hidden="true">
+                                <div class="auth-password-strength-fill" data-password-strength-fill></div>
+                            </div>
+                        </div>
+                        <div class="auth-hint" data-password-hint>Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
+                    </div>
+                    {{ form.new_password1.errors }}
+                </div>
+                <div class="settings-field">
+                    <label for="{{ form.new_password2.id_for_label }}">{{ form.new_password2.label }}</label>
+                    <div class="auth-password-wrap">
+                        {{ form.new_password2 }}
+                        <button
+                            type="button"
+                            class="auth-password-toggle"
+                            data-password-toggle
+                            data-target="{{ form.new_password2.id_for_label }}"
+                            aria-label="Show password confirmation"
+                            aria-pressed="false"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                                <path class="auth-eye-slash" d="M4 20 20 4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {{ form.new_password2.errors }}
+                </div>
+            </div>
+        </form>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const evaluatePassword = (value) => {
+            const checks = [
+                value.length >= 8,
+                /[a-z]/.test(value),
+                /[A-Z]/.test(value),
+                /\d/.test(value),
+                /[^A-Za-z0-9]/.test(value),
+            ];
+            const score = checks.filter(Boolean).length;
+
+            if (value.length < 8) {
+                return { width: 18, level: "weak", label: "Too short", hint: "Password must be at least 8 characters long." };
+            }
+            if (score <= 2) {
+                return { width: 35, level: "weak", label: "Weak", hint: "Add uppercase letters, numbers, or symbols to strengthen it." };
+            }
+            if (score === 3) {
+                return { width: 58, level: "fair", label: "Fair", hint: "Good start. Add one more type of character for a stronger password." };
+            }
+            if (score === 4) {
+                return { width: 80, level: "good", label: "Good", hint: "This password looks solid." };
+            }
+            return { width: 100, level: "strong", label: "Strong", hint: "Excellent password strength." };
+        };
+
+        const setupPasswordFeedback = (item) => {
+            if (!item || item.dataset.bound === "true") {
+                return;
+            }
+            const target = document.getElementById(item.dataset.target);
+            const fill = item.querySelector("[data-password-strength-fill]");
+            const label = item.querySelector("[data-password-strength-label]");
+            const hint = item.querySelector("[data-password-hint]");
+            const strengthRoot = item.querySelector(".auth-password-strength");
+
+            if (!target || !fill || !label || !hint || !strengthRoot) {
+                return;
+            }
+
+            const sync = () => {
+                const result = evaluatePassword(target.value);
+                strengthRoot.dataset.strength = result.level;
+                fill.style.width = `${result.width}%`;
+                label.textContent = result.label;
+                hint.textContent = result.hint;
+            };
+
+            sync();
+            target.addEventListener("input", sync);
+            item.dataset.bound = "true";
+        };
+
+        const setupPasswordToggle = (button) => {
+            if (!button || button.dataset.bound === "true") {
+                return;
+            }
+            const target = document.getElementById(button.dataset.target);
+            if (!target) {
+                return;
+            }
+
+            button.addEventListener("click", () => {
+                const showPassword = target.type === "password";
+                target.type = showPassword ? "text" : "password";
+                button.classList.toggle("is-visible", showPassword);
+                button.setAttribute("aria-pressed", showPassword ? "true" : "false");
+            });
+            button.dataset.bound = "true";
+        };
+
+        const setupToasts = () => {
+            const toasts = document.querySelectorAll(".toast-message");
+            if (!toasts.length) {
+                return;
+            }
+
+            toasts.forEach((toast, index) => {
+                const dismiss = () => {
+                    toast.classList.add("toast-hide");
+                    window.setTimeout(() => toast.remove(), 300);
+                };
+
+                window.setTimeout(dismiss, 2600 + index * 160);
+            });
+        };
+
+        const setupPhotoUpload = () => {
+            const photoInput = document.getElementById("{{ form.profile_photo.id_for_label }}");
+            const uploadShell = document.querySelector("[data-upload-shell]");
+            const previewWrap = document.querySelector("[data-upload-preview-wrap]");
+            const previewImage = document.querySelector("[data-upload-preview]");
+            const uploadPlaceholder = document.querySelector("[data-upload-placeholder]");
+            const uploadLabel = document.querySelector("[data-upload-label]");
+            const removePhotoInput = document.getElementById("{{ form.remove_profile_photo.id_for_label }}");
+
+            if (!photoInput || !uploadShell || !previewWrap || !previewImage || !uploadPlaceholder) {
+                return;
+            }
+
+            const originalImage = previewImage.getAttribute("src") || "";
+
+            const showPlaceholder = (labelText) => {
+                previewImage.removeAttribute("src");
+                previewWrap.classList.add("is-hidden");
+                uploadPlaceholder.classList.remove("is-hidden");
+                uploadShell.classList.remove("is-filled");
+                if (uploadLabel) {
+                    uploadLabel.textContent = labelText;
+                }
+            };
+
+            const showPreview = (src) => {
+                previewImage.src = src;
+                previewWrap.classList.remove("is-hidden");
+                uploadPlaceholder.classList.add("is-hidden");
+                uploadShell.classList.add("is-filled");
+            };
+
+            const syncPhotoPreview = () => {
+                const file = photoInput.files && photoInput.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.addEventListener("load", (event) => {
+                        if (removePhotoInput) {
+                            removePhotoInput.checked = false;
+                        }
+                        showPreview(event.target?.result || "");
+                    });
+                    reader.readAsDataURL(file);
+                    return;
+                }
+
+                if (removePhotoInput && removePhotoInput.checked) {
+                    showPlaceholder("Upload profile photo");
+                    return;
+                }
+
+                if (originalImage) {
+                    showPreview(originalImage);
+                    return;
+                }
+
+                showPlaceholder("Upload profile photo");
+            };
+
+            photoInput.addEventListener("change", syncPhotoPreview);
+            if (removePhotoInput) {
+                removePhotoInput.addEventListener("change", syncPhotoPreview);
+            }
+            syncPhotoPreview();
+        };
+
+        document.querySelectorAll("[data-password-feedback]").forEach(setupPasswordFeedback);
+        document.querySelectorAll("[data-password-toggle]").forEach(setupPasswordToggle);
+        setupToasts();
+        setupPhotoUpload();
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Schedule Calendar | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=11">
+{% endblock %}
+
+{% block body_class %}schedule-page schedule-calendar-page{% endblock %}
+
+{% block content %}
+<main class="schedule-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container schedule-heading schedule-heading-row">
+        <div>
+            <h1>{{ current_month_label }}</h1>
+            <p>Interactive schedule calendar. Click a date to filter the event list below.</p>
+        </div>
+        <div class="schedule-heading-actions">
+            <a class="btn btn-secondary btn-link" href="?ym={{ prev_ym }}" aria-label="Previous month">Previous</a>
+            <a class="btn btn-secondary btn-link" href="?ym={{ next_ym }}" aria-label="Next month">Next</a>
+            {% if can_create_events %}<a class="btn btn-primary btn-link" href="{% url 'scheduling:event_create' %}">Add Event</a>{% endif %}
+        </div>
+    </section>
+
+    <section class="container schedule-calendar-panel">
+        <div class="calendar-grid" role="table" aria-label="Monthly schedule">
+            {% for weekday in week_days %}
+                <div class="weekday">{{ weekday }}</div>
+            {% endfor %}
+
+            {% for week in calendar_weeks %}
+                {% for cell in week %}
+                    <div
+                        class="calendar-cell{% if not cell.is_current_month %} muted{% endif %}{% if cell.events %} has-event {{ cell.tone_class }}{% endif %}"
+                        data-day="{{ cell.iso }}"
+                        role="button"
+                        tabindex="0"
+                    >
+                        <span>{{ cell.day_label }}</span>
+                        {% for event in cell.events %}
+                            <button
+                                type="button"
+                                class="calendar-event-pill event-status-{{ event.status }}"
+                                data-event-detail
+                                data-event-status="{{ event.status }}"
+                                data-start-local="{{ event.start_local_iso }}"
+                                data-end-local="{{ event.end_local_iso }}"
+                                data-event-title="{{ event.title|escape }}"
+                                data-event-when="{{ event.when|escape }}"
+                                data-event-time="{{ event.start_time }} - {{ event.end_time }}"
+                                data-event-location="{{ event.location|default:'TBD'|escape }}"
+                                data-event-duration="{{ event.duration_minutes }}"
+                                data-event-attendees="{{ event.attendees_count }}"
+                                data-event-audience="{{ event.audience_label|escape }}"
+                                data-event-type="{{ event.badge|escape }}"
+                                data-event-details="{{ event.details|default:'No additional details.'|escape }}"
+                            >
+                                {{ event.start_time }} - {{ event.end_time }} {{ event.title }}
+                            </button>
+                        {% endfor %}
+                        {% if cell.extra_count %}
+                            <small class="calendar-more">+{{ cell.extra_count }} more</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="container schedule-card upcoming-list-panel">
+        <div class="panel-header-row panel-header-row-spaced">
+            <h2>Upcoming Events</h2>
+            <button class="btn btn-ghost" type="button" data-clear-filter hidden>Show all</button>
+        </div>
+
+        {% if month_events %}
+            {% for event in month_events %}
+                <article id="event-{{ event.id }}" class="event-list-item event-status-{{ event.status }}" data-event-date="{{ event.event_date }}" data-event-status="{{ event.status }}" data-start-local="{{ event.start_local_iso }}" data-end-local="{{ event.end_local_iso }}">
+                    <div class="event-list-main">
+                        <div class="event-icon {% cycle 'event-icon-red' 'event-icon-cyan' 'event-icon-amber' %}">{{ event.title|slice:":1"|upper }}</div>
+                        <div class="event-copy">
+                            <div class="event-copy-head">
+                                <strong>{{ event.title }}</strong>
+                                <span class="event-status-badge event-status-badge-{{ event.status }}">{{ event.status|upper }}</span>
+                            </div>
+                            <span>{{ event.when }} • {{ event.start_time }} - {{ event.end_time }}</span>
+                            <small>
+                                {{ event.attendees_count }} Attendees
+                                • {{ event.duration_minutes }} min
+                                • {{ event.audience_label }}
+                                {% if event.location %} • {{ event.location }}{% endif %}
+                                • {{ event.badge }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="event-actions">
+                        <button
+                            type="button"
+                            class="btn btn-ghost"
+                            data-event-detail
+                            data-event-title="{{ event.title|escape }}"
+                            data-event-when="{{ event.when|escape }}"
+                            data-event-time="{{ event.start_time }} - {{ event.end_time }}"
+                            data-event-location="{{ event.location|default:'TBD'|escape }}"
+                            data-event-duration="{{ event.duration_minutes }}"
+                            data-event-attendees="{{ event.attendees_count }}"
+                            data-event-audience="{{ event.audience_label|escape }}"
+                            data-event-type="{{ event.badge|escape }}"
+                            data-event-details="{{ event.details|default:'No additional details.'|escape }}"
+                        >
+                            View
+                        </button>
+                        {% if event.can_manage %}
+                            <a class="btn btn-edit btn-link" href="{% url 'scheduling:edit_event' event.id %}?ym={{ selected_ym }}">Edit</a>
+                            <form method="post" action="{% url 'scheduling:delete_event' event.id %}" class="event-delete-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="ym" value="{{ selected_ym }}">
+                                <button class="btn btn-delete" type="submit">Delete</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        {% else %}
+            <div class="upcoming-empty">
+                No events scheduled for this month yet.
+                <a href="{% url 'scheduling:event_create' %}">Add your first event.</a>
+            </div>
+        {% endif %}
+
+        <p class="upcoming-empty" data-no-match hidden>
+            No events found on this date. Click another day or use Show all.
+        </p>
+    </section>
+
+    <div class="delete-modal" data-event-modal hidden>
+        <div class="delete-modal-backdrop" data-event-modal-close></div>
+        <div class="delete-modal-panel" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+            <p class="delete-modal-kicker" data-event-modal-type>Event</p>
+            <h3 id="event-modal-title" data-event-modal-title>Event Title</h3>
+            <p class="delete-modal-copy"><strong>Date:</strong> <span data-event-modal-when></span></p>
+            <p class="delete-modal-copy"><strong>Time:</strong> <span data-event-modal-time></span></p>
+            <p class="delete-modal-copy"><strong>Duration:</strong> <span data-event-modal-duration></span> min</p>
+            <p class="delete-modal-copy"><strong>Audience:</strong> <span data-event-modal-audience></span></p>
+            <p class="delete-modal-copy"><strong>Attendees:</strong> <span data-event-modal-attendees></span></p>
+            <p class="delete-modal-copy"><strong>Location:</strong> <span data-event-modal-location></span></p>
+            <p class="delete-modal-copy"><strong>Details:</strong> <span data-event-modal-details></span></p>
+            <div class="delete-modal-actions">
+                <button class="btn btn-secondary" type="button" data-event-modal-close>Close</button>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const dayButtons = document.querySelectorAll(".calendar-cell[data-day]");
+        const eventItems = document.querySelectorAll(".event-list-item[data-event-date]");
+        const clearButton = document.querySelector("[data-clear-filter]");
+        const noMatch = document.querySelector("[data-no-match]");
+        const detailTriggers = document.querySelectorAll("[data-event-detail]");
+        const calendarEventPills = document.querySelectorAll(".calendar-event-pill[data-start-local][data-end-local]");
+        const eventModal = document.querySelector("[data-event-modal]");
+        const eventModalCloseButtons = document.querySelectorAll("[data-event-modal-close]");
+        const toasts = document.querySelectorAll(".toast-message");
+
+        const computeStatusFromBrowserClock = (item) => {
+            const startRaw = item.dataset.startLocal;
+            const endRaw = item.dataset.endLocal;
+            if (!startRaw || !endRaw) {
+                return item.dataset.eventStatus || "upcoming";
+            }
+
+            const start = new Date(startRaw);
+            const end = new Date(endRaw);
+            const now = new Date();
+
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                return item.dataset.eventStatus || "upcoming";
+            }
+            if (now < start) {
+                return "upcoming";
+            }
+            if (now > end) {
+                return "past";
+            }
+            return "pending";
+        };
+
+        const applyBrowserStatuses = () => {
+            eventItems.forEach((item) => {
+                const status = computeStatusFromBrowserClock(item);
+                item.dataset.eventStatus = status;
+                item.classList.remove("event-status-upcoming", "event-status-pending", "event-status-past");
+                item.classList.add(`event-status-${status}`);
+            });
+
+            calendarEventPills.forEach((pill) => {
+                const status = computeStatusFromBrowserClock(pill);
+                pill.dataset.eventStatus = status;
+                pill.classList.remove("event-status-upcoming", "event-status-pending", "event-status-past");
+                pill.classList.add(`event-status-${status}`);
+            });
+        };
+
+        applyBrowserStatuses();
+
+        const showAll = () => {
+            if (!eventItems.length) {
+                return;
+            }
+            eventItems.forEach((item) => {
+                item.hidden = false;
+            });
+            dayButtons.forEach((button) => button.classList.remove("is-selected"));
+            if (clearButton) {
+                clearButton.hidden = true;
+            }
+            if (noMatch) {
+                noMatch.hidden = true;
+            }
+        };
+
+        const filterByDay = (day) => {
+            if (!eventItems.length) {
+                return;
+            }
+            let visibleCount = 0;
+            eventItems.forEach((item) => {
+                const isVisible = item.dataset.eventDate === day;
+                item.hidden = !isVisible;
+                if (isVisible) {
+                    visibleCount += 1;
+                }
+            });
+
+            dayButtons.forEach((button) => {
+                button.classList.toggle("is-selected", button.dataset.day === day);
+            });
+
+            if (clearButton) {
+                clearButton.hidden = false;
+            }
+
+            if (noMatch) {
+                noMatch.hidden = visibleCount !== 0;
+            }
+        };
+
+        if (dayButtons.length) {
+            dayButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    const day = button.dataset.day;
+                    if (!day) {
+                        return;
+                    }
+                    filterByDay(day);
+                });
+
+                button.addEventListener("keydown", (event) => {
+                    if (event.key !== "Enter" && event.key !== " ") {
+                        return;
+                    }
+                    event.preventDefault();
+                    const day = button.dataset.day;
+                    if (!day) {
+                        return;
+                    }
+                    filterByDay(day);
+                });
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener("click", showAll);
+        }
+
+        const closeEventModal = () => {
+            if (!eventModal) {
+                return;
+            }
+            eventModal.hidden = true;
+            document.body.classList.remove("modal-open");
+        };
+
+        const openEventModal = (trigger) => {
+            if (!eventModal || !trigger) {
+                return;
+            }
+
+            const setText = (selector, value) => {
+                const node = eventModal.querySelector(selector);
+                if (node) {
+                    node.textContent = value || "-";
+                }
+            };
+
+            setText("[data-event-modal-title]", trigger.dataset.eventTitle || "Event");
+            setText("[data-event-modal-when]", trigger.dataset.eventWhen || "-");
+            setText("[data-event-modal-time]", trigger.dataset.eventTime || "-");
+            setText("[data-event-modal-duration]", trigger.dataset.eventDuration || "-");
+            setText("[data-event-modal-audience]", trigger.dataset.eventAudience || "-");
+            setText("[data-event-modal-attendees]", trigger.dataset.eventAttendees || "-");
+            setText("[data-event-modal-location]", trigger.dataset.eventLocation || "-");
+            setText("[data-event-modal-details]", trigger.dataset.eventDetails || "-");
+            setText("[data-event-modal-type]", trigger.dataset.eventType || "Event");
+
+            eventModal.hidden = false;
+            document.body.classList.add("modal-open");
+        };
+
+        detailTriggers.forEach((trigger) => {
+            trigger.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openEventModal(trigger);
+            });
+        });
+
+        eventModalCloseButtons.forEach((button) => {
+            button.addEventListener("click", closeEventModal);
+        });
+
+        if (toasts.length) {
+            toasts.forEach((toast, index) => {
+                const dismissToast = () => {
+                    toast.classList.add("toast-hide");
+                    window.setTimeout(() => toast.remove(), 320);
+                };
+
+                window.setTimeout(dismissToast, 2600 + index * 160);
+            });
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                if (eventModal && !eventModal.hidden) {
+                    closeEventModal();
+                    return;
+                }
+                const latestToast = document.querySelector(".toast-message:last-child");
+                if (latestToast) {
+                    latestToast.classList.add("toast-hide");
+                    window.setTimeout(() => latestToast.remove(), 320);
+                }
+            }
+        });
+    })();
+</script>
+{% endblock %}

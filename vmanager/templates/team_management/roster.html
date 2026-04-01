@@ -4,7 +4,7 @@
 {% block title %}Team Roster | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=11">
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=13">
 {% endblock %}
 
 {% block body_class %}team-page{% endblock %}
@@ -83,6 +83,7 @@
                             <input type="hidden" name="member_type" value="{{ member_type_filter }}">
                         </form>
                         {% if can_manage %}
+                            <a href="{% url 'team_management:roster' %}" class="team-primary-button team-primary-button-neutral" title="Refresh roster">↻ Refresh</a>
                             <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Member</a>
                         {% endif %}
                     </div>
@@ -105,6 +106,7 @@
                             <select name="member_type" class="roster-select" onchange="this.form.submit()">
                                 <option value="all" {% if member_type_filter == "all" %}selected{% endif %}>All Roles</option>
                                 <option value="players" {% if member_type_filter == "players" %}selected{% endif %}>Players</option>
+                                <option value="parents" {% if member_type_filter == "parents" %}selected{% endif %}>Parents</option>
                                 <option value="captains" {% if member_type_filter == "captains" %}selected{% endif %}>Captains</option>
                                 <option value="coaches" {% if member_type_filter == "coaches" %}selected{% endif %}>Coaches</option>
                                 <option value="staff" {% if member_type_filter == "staff" %}selected{% endif %}>Staff</option>
@@ -115,6 +117,48 @@
                 </div>
             </div>
         </div>
+
+        {% if can_manage and pending_requests %}
+            <div class="roster-list" style="margin-bottom: 16px;">
+                {% for member in pending_requests %}
+                    <article class="roster-card" style="border:1px dashed #f5a524; background:#fffaf0;">
+                        <div class="roster-card-head">
+                            <div class="member-identify">
+                                <div class="member-avatar">
+                                    {% if member.avatar_url %}
+                                        <img src="{{ member.avatar_url }}" alt="{{ member.user.get_full_name }}">
+                                    {% else %}
+                                        <span>{{ member.initials }}</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="member-title-row">
+                                        <h3>{{ member.display_name }}</h3>
+                                        <span class="member-badge badge-amber">Requested</span>
+                                        <span class="member-status is-inactive">{{ member.status_label }}</span>
+                                    </div>
+                                    <p>{{ member.user.email }} • Requested role: {{ member.requested_role_label }}</p>
+                                </div>
+                            </div>
+
+                            <div class="member-card-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <form method="post" action="{% url 'team_management:review_member_request' member.membership.id %}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                    {% csrf_token %}
+                                    <select name="approved_role" class="roster-select" required>
+                                        <option value="">Assign role</option>
+                                        {% for role_value, role_label in review_assignable_roles %}
+                                            <option value="{{ role_value }}" {% if member.membership.requested_role == role_value %}selected{% endif %}>{{ role_label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" name="action" value="approve" class="team-secondary-button">Approve</button>
+                                    <button type="submit" name="action" value="reject" class="team-secondary-button team-danger-button">Reject</button>
+                                </form>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
 
         {% if members %}
             <div class="roster-list">
@@ -133,7 +177,7 @@
                                     <div class="member-title-row">
                                         <h3>{{ member.display_name }}</h3>
                                         <span class="member-badge {{ member.badge_class }}">{{ member.display_title }}</span>
-                                        <span class="member-status {% if member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
+                                        <span class="member-status {% if member.membership.status == 'approved' and member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
                                     </div>
                                     <p>{{ member.subtitle }}{% if member.user.email %} • {{ member.user.email }}{% endif %}</p>
                                 </div>

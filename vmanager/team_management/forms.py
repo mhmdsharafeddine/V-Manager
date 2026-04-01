@@ -23,6 +23,9 @@ class TeamMemberForm(forms.Form):
         ("", "Select Member Role"),
         ("Player", "Player"),
         ("Captain", "Captain"),
+        ("Parent", "Parent"),
+        ("Coach", "Coach"),
+        ("Staff", "Staff"),
     ]
 
     CATEGORY_CHOICES = [
@@ -41,6 +44,12 @@ class TeamMemberForm(forms.Form):
             attrs={"type": "date"},
             format="%Y-%m-%d",
         ),
+    )
+    linked_children = forms.CharField(
+        label="Linked Children",
+        required=False,
+        disabled=True,
+        widget=forms.Textarea(attrs={"rows": 3}),
     )
     jersey_number = forms.IntegerField(label="Jersey Number", required=False, min_value=0)
     position = forms.ChoiceField(choices=POSITION_CHOICES, label="Position", required=False)
@@ -65,6 +74,7 @@ class TeamMemberForm(forms.Form):
             "email": {"placeholder": "you@example.com", "autocomplete": "email"},
             "phone_number": {"placeholder": "e.g. +961 03 046 997", "autocomplete": "tel"},
             "date_of_birth": {"type": "date"},
+            "linked_children": {"placeholder": "Linked child names", "readonly": "readonly"},
             "jersey_number": {"placeholder": "e.g. 10", "inputmode": "numeric"},
         }
 
@@ -84,19 +94,24 @@ class TeamMemberForm(forms.Form):
 
         if membership:
             profile = membership.user.profile
-            child_first_name = ""
-            child_last_name = ""
-            if profile.role == AccountProfile.ROLE_PARENT and profile.child_name:
-                child_parts = profile.child_name.split(maxsplit=1)
-                child_first_name = child_parts[0]
-                child_last_name = child_parts[1] if len(child_parts) > 1 else ""
+            linked_children_summary = ""
+            if profile.role == AccountProfile.ROLE_PARENT:
+                linked_children = profile.linked_children_profiles()
+                if linked_children:
+                    linked_children_summary = "\n".join(
+                        child.user.get_full_name().strip() or child.user.email
+                        for child in linked_children
+                    )
+                elif profile.child_name:
+                    linked_children_summary = profile.child_name
             self.initial.update(
                 {
-                    "first_name": child_first_name if profile.role == AccountProfile.ROLE_PARENT else membership.user.first_name,
-                    "last_name": child_last_name if profile.role == AccountProfile.ROLE_PARENT else membership.user.last_name,
+                    "first_name": membership.user.first_name,
+                    "last_name": membership.user.last_name,
                     "email": membership.user.email,
                     "phone_number": profile.phone_number,
                     "date_of_birth": profile.date_of_birth,
+                    "linked_children": linked_children_summary,
                     "jersey_number": profile.jersey_number,
                     "position": profile.position,
                     "member_title": membership.member_title,
@@ -161,15 +176,21 @@ class TeamMemberForm(forms.Form):
             else:
                 self.add_error("email", "This member is already assigned to another team.")
 
-        if member_category == self.CATEGORY_PLAYER and not position:
-            self.add_error("position", "Position is required for players.")
         if member_category == self.CATEGORY_PLAYER and not member_title:
             self.add_error("member_title", "Member Role is required for players.")
+
+        is_parent_member = member_category == self.CATEGORY_PLAYER and member_title == "Parent"
+        if member_category == self.CATEGORY_PLAYER and not is_parent_member and not position:
+            self.add_error("position", "Position is required for players.")
 
         if member_category == self.CATEGORY_STAFF:
             cleaned_data["jersey_number"] = None
             cleaned_data["position"] = ""
             cleaned_data["member_title"] = profile.get_role_display()
+        elif is_parent_member:
+            cleaned_data["jersey_number"] = None
+            cleaned_data["position"] = ""
+            cleaned_data["member_title"] = "Parent"
         else:
             cleaned_data["position"] = position
             cleaned_data["member_title"] = member_title
@@ -181,15 +202,9 @@ class TeamMemberForm(forms.Form):
     def save(self, *, team, added_by):
         user = self.resolved_user or self.membership.user
         profile = user.profile
-        is_parent_player = profile.role == AccountProfile.ROLE_PARENT and self.cleaned_data["member_category"] == self.CATEGORY_PLAYER
-        child_name = f'{self.cleaned_data["first_name"].strip()} {self.cleaned_data["last_name"].strip()}'.strip()
-
-        if is_parent_player:
-            profile.child_name = child_name
-        else:
-            user.first_name = self.cleaned_data["first_name"].strip()
-            user.last_name = self.cleaned_data["last_name"].strip()
-            user.save(update_fields=["first_name", "last_name"])
+        user.first_name = self.cleaned_data["first_name"].strip()
+        user.last_name = self.cleaned_data["last_name"].strip()
+        user.save(update_fields=["first_name", "last_name"])
 
         profile.phone_number = self.cleaned_data["phone_number"]
         profile.date_of_birth = self.cleaned_data["date_of_birth"]
