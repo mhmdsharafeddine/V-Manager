@@ -17,6 +17,7 @@ from team_management.models import TeamMembership
 from .models import ScheduledEvent
 from .notifications import (
     build_user_notifications_context,
+    delete_announcement_notifications,
     delete_notifications,
     get_user_notifications,
     mark_all_user_notifications_read,
@@ -535,6 +536,24 @@ def delete_notification_view(request, event_id):
     visible_event_ids = {item["event_id"] for item in get_user_notifications(request.user)}
     if event_id in visible_event_ids:
         delete_notifications(request.user, [event_id])
+        messages.success(request, "Notification deleted.")
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url:
+        return redirect(next_url)
+    return redirect("scheduling:notifications")
+
+
+@login_required
+@require_POST
+def delete_announcement_notification_view(request, announcement_id):
+    visible_announcement_ids = {
+        item["announcement_id"]
+        for item in get_user_notifications(request.user)
+        if item.get("announcement_id")
+    }
+    if announcement_id in visible_announcement_ids:
+        delete_announcement_notifications(request.user, [announcement_id])
         messages.success(request, "Notification deleted.")
 
     next_url = (request.POST.get("next") or "").strip()

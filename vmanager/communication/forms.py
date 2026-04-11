@@ -10,5 +10,4 @@ class AnnouncementComposeForm(forms.Form):
     priority = forms.ChoiceField(choices=Announcement.PRIORITY_CHOICES)
     send_push_notification = forms.BooleanField(required=False, initial=True)
     send_email_notification = forms.BooleanField(required=False, initial=True)
-    send_sms_notification = forms.BooleanField(required=False, initial=False)
     pin_to_top = forms.BooleanField(required=False, initial=False)

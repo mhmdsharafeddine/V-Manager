@@ -133,8 +133,8 @@ def _build_announcement_notification_item(recipient):
         "open_label": "Open Announcement",
         "mark_read_action_url": reverse("communication:mark_read", args=[announcement.id]),
         "mark_read_next_url": reverse("scheduling:notifications"),
-        "delete_action_url": None,
-        "delete_next_url": None,
+        "delete_action_url": reverse("scheduling:delete_announcement_notification", args=[announcement.id]),
+        "delete_next_url": reverse("scheduling:notifications"),
     }
 
 
@@ -167,6 +167,7 @@ def get_user_notifications(user, *, limit=None):
         AnnouncementRecipient.objects.filter(
             user=user,
             announcement__send_push_notification=True,
+            is_deleted=False,
         )
         .select_related("announcement")
         .order_by("-announcement__created_at", "-announcement_id")
@@ -242,3 +243,16 @@ def delete_notifications(user, event_ids):
             event_id=event_id,
             defaults={"is_deleted": True},
         )
+
+
+def delete_announcement_notifications(user, announcement_ids):
+    if not getattr(user, "is_authenticated", False):
+        return
+    if not announcement_ids:
+        return
+
+    AnnouncementRecipient.objects.filter(
+        user=user,
+        announcement_id__in=announcement_ids,
+        announcement__send_push_notification=True,
+    ).update(is_deleted=True)

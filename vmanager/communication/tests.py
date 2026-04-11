@@ -1,6 +1,4 @@
 from datetime import timedelta
-from unittest.mock import patch
-
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase
@@ -311,29 +309,27 @@ class CommunicationHubBackendTests(TestCase):
 		coach_post = Announcement.objects.get(title="Coach pin attempt")
 		self.assertFalse(coach_post.pin_to_top)
 
-	def test_post_announcement_sends_email_and_sms_notifications(self):
+	def test_post_announcement_sends_email_notifications(self):
 		mail.outbox = []
 		self.client.force_login(self.manager)
 
-		with patch("communication.sms_utils.logger.info") as sms_logger:
-			with self.captureOnCommitCallbacks(execute=True):
-				response = self.client.post(
-					reverse("communication:hub"),
-					{
-						"title": "Notify players",
-						"body": "This should trigger notifications.",
-						"audience": Announcement.AUDIENCE_PLAYERS,
-						"priority": Announcement.PRIORITY_IMPORTANT,
-						"send_email_notification": "on",
-						"send_sms_notification": "on",
-					},
-				)
+		with self.captureOnCommitCallbacks(execute=True):
+			response = self.client.post(
+				reverse("communication:hub"),
+				{
+					"title": "Notify players",
+					"body": "This should trigger notifications.",
+					"audience": Announcement.AUDIENCE_PLAYERS,
+					"priority": Announcement.PRIORITY_IMPORTANT,
+					"send_email_notification": "on",
+				},
+			)
 
 		self.assertEqual(response.status_code, 302)
 		self.assertEqual(len(mail.outbox), 1)
 		self.assertEqual(mail.outbox[0].to, [self.player.email])
 		self.assertIn("New V-Manager announcement", mail.outbox[0].subject)
-		self.assertTrue(sms_logger.called)
+		self.assertFalse(Announcement.objects.get(title="Notify players").send_sms_notification)
 
 	def test_push_announcements_appear_on_notifications_page(self):
 		self._create_announcement(title="Push enabled", send_push_notification=True)
@@ -350,6 +346,47 @@ class CommunicationHubBackendTests(TestCase):
 		]
 		self.assertIn("Push enabled", announcement_titles)
 		self.assertNotIn("Push disabled", announcement_titles)
+
+	def test_delete_announcement_notification_hides_it_without_deleting_feed_item(self):
+		announcement = self._create_announcement(title="Delete only notification", send_push_notification=True)
+
+		self.client.force_login(self.player)
+		notifications_response = self.client.get(reverse("scheduling:notifications"))
+		notification_items = [
+			item
+			for item in notifications_response.context["notifications"]
+			if item.get("kind") == "announcement"
+		]
+		self.assertEqual(
+			notification_items[0]["delete_action_url"],
+			reverse("scheduling:delete_announcement_notification", args=[announcement.id]),
+		)
+
+		response = self.client.post(
+			reverse("scheduling:delete_announcement_notification", args=[announcement.id]),
+			{"next": reverse("scheduling:notifications")},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertTrue(
+			AnnouncementRecipient.objects.filter(
+				announcement=announcement,
+				user=self.player,
+				is_deleted=True,
+			).exists()
+		)
+
+		notifications_response = self.client.get(reverse("scheduling:notifications"))
+		announcement_titles = [
+			item["event_title"]
+			for item in notifications_response.context["notifications"]
+			if item.get("kind") == "announcement"
+		]
+		self.assertNotIn("Delete only notification", announcement_titles)
+
+		feed_response = self.client.get(reverse("communication:announcements"))
+		feed_titles = [item["title"] for item in feed_response.context["announcements"]]
+		self.assertIn("Delete only notification", feed_titles)
 
 	def test_mark_all_notifications_marks_push_announcements_read(self):
 		announcement = self._create_announcement(title="Needs read", send_push_notification=True)

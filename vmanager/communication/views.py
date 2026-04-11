@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, When
@@ -340,7 +341,6 @@ def _build_compose_state(form):
         "priority": Announcement.PRIORITY_INFO,
         "send_push_notification": True,
         "send_email_notification": True,
-        "send_sms_notification": False,
         "pin_to_top": False,
     }
     if not form.is_bound:
@@ -354,7 +354,6 @@ def _build_compose_state(form):
         "priority": data.get("priority") or defaults["priority"],
         "send_push_notification": _checkbox_value(data, "send_push_notification", default=False),
         "send_email_notification": _checkbox_value(data, "send_email_notification", default=False),
-        "send_sms_notification": _checkbox_value(data, "send_sms_notification", default=False),
         "pin_to_top": _checkbox_value(data, "pin_to_top", default=False),
     }
 
@@ -379,7 +378,7 @@ def _create_announcement_from_form(*, user, team, form):
             priority=cleaned["priority"],
             send_push_notification=cleaned["send_push_notification"],
             send_email_notification=cleaned["send_email_notification"],
-            send_sms_notification=cleaned["send_sms_notification"],
+            send_sms_notification=False,
             pin_to_top=should_pin,
         )
 
@@ -430,7 +429,8 @@ def hub(request):
             compose_form.add_error(None, "Only active coaches, managers, and staff members can post announcements.")
         elif compose_form.is_valid():
             _create_announcement_from_form(user=request.user, team=team, form=compose_form)
-            return redirect(f"{reverse('communication:hub')}?posted=1")
+            messages.success(request, "Announcement posted successfully.")
+            return redirect(reverse("communication:hub"))
     else:
         compose_form = AnnouncementComposeForm()
 
@@ -445,7 +445,6 @@ def hub(request):
         "compose_state": _build_compose_state(compose_form),
         "audience_choices": Announcement.AUDIENCE_CHOICES,
         "priority_choices": Announcement.PRIORITY_CHOICES,
-        "post_success": request.GET.get("posted") == "1",
         "can_post_announcements": can_post_announcements,
         "can_pin_announcements": can_pin_announcements,
         "all_announcements_count": feed_queryset.count(),
@@ -483,5 +482,6 @@ def mark_announcement_read(request, announcement_id):
         filters["announcement__team"] = team
 
     AnnouncementRecipient.objects.filter(**filters).update(read_at=timezone.now())
+    messages.success(request, "Announcement marked as read.")
     return redirect(_safe_next_url(request, reverse("communication:hub")))
 

@@ -4,11 +4,19 @@
 {% block title %}Communication Hub | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'communication/hub.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'communication/hub.css' %}?v=3">
 {% endblock %}
 
 
 {% block content %}
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <main class="communication-page" id="communication-hub">
         <section class="container communication-intro">
             <h1>Communication Hub</h1>
@@ -38,9 +46,6 @@
 
                         <form class="compose-form" action="{% url 'communication:hub' %}" method="post" novalidate>
                             {% csrf_token %}
-                            {% if post_success %}
-                                <p class="compose-feedback compose-feedback-success" role="status">Announcement posted successfully.</p>
-                            {% endif %}
                             {% if compose_form.non_field_errors %}
                                 <p class="compose-feedback compose-feedback-error" role="alert">{{ compose_form.non_field_errors|join:' ' }}</p>
                             {% endif %}
@@ -79,10 +84,6 @@
                                 <label>
                                     <input type="checkbox" name="send_email_notification" {% if compose_state.send_email_notification %}checked{% endif %}>
                                     <span>Send email notification</span>
-                                </label>
-                                <label>
-                                    <input type="checkbox" name="send_sms_notification" {% if compose_state.send_sms_notification %}checked{% endif %}>
-                                    <span>Send SMS notification (premium)</span>
                                 </label>
                                 <label>
                                     <input type="checkbox" name="pin_to_top" {% if compose_state.pin_to_top %}checked{% endif %} {% if not can_pin_announcements %}disabled{% endif %}>
@@ -234,6 +235,18 @@
 {% block extra_js %}
     <script>
         (() => {
+            const toasts = document.querySelectorAll(".toast-message");
+            if (toasts.length) {
+                window.setTimeout(() => {
+                    toasts.forEach((toast, index) => {
+                        window.setTimeout(() => {
+                            toast.classList.add("toast-hide");
+                            window.setTimeout(() => toast.remove(), 320);
+                        }, index * 120);
+                    });
+                }, 2600);
+            }
+
             const onlineNowNode = document.querySelector("[data-stat-online-now]");
             if (!onlineNowNode) {
                 return;

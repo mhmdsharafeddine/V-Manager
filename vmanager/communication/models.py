@@ -72,6 +72,7 @@ class AnnouncementRecipient(models.Model):
 	)
 	delivered_at = models.DateTimeField(auto_now_add=True)
 	read_at = models.DateTimeField(null=True, blank=True, db_index=True)
+	is_deleted = models.BooleanField(default=False, db_index=True)
 
 	class Meta:
 		constraints = [

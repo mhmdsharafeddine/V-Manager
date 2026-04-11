@@ -3,7 +3,6 @@ import logging
 from django.contrib.auth import get_user_model
 
 from .email_utils import send_announcement_email_notifications
-from .sms_utils import send_announcement_sms_notifications
 from .models import Announcement
 
 logger = logging.getLogger(__name__)
@@ -28,9 +27,6 @@ def dispatch_announcement_notifications(*, announcement_id, recipient_ids):
 
     if announcement.send_email_notification:
         send_announcement_email_notifications(announcement=announcement, recipients=recipients)
-
-    if announcement.send_sms_notification:
-        send_announcement_sms_notifications(announcement=announcement, recipients=recipients)
 
     if announcement.send_push_notification:
         # Push delivery hook placeholder for provider integration.
