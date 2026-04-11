@@ -27,6 +27,7 @@ urlpatterns = [
     path('team/', include('team_management.urls')),
     path('schedule/', include('scheduling.urls')),
     path('performance/', include('performance.urls')),
+    path('communication/', include('communication.urls')),
 ]
 
 if settings.DEBUG:

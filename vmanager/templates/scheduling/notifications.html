@@ -22,7 +22,7 @@
     <section class="container schedule-heading schedule-heading-row">
         <div>
             <h1>Notifications</h1>
-            <p>Review upcoming event alerts, mark them as read, or jump to the event in the calendar.</p>
+            <p>Review event alerts and announcement pushes, mark them as read, or open the source item.</p>
         </div>
         <div class="schedule-heading-actions">
             <a class="btn btn-secondary btn-link" href="{% url 'home' %}">Back to Home</a>
@@ -45,25 +45,27 @@
                             <span>{{ item.when }}</span>
                         </div>
                         <div class="notification-page-actions">
-                            <form method="post" class="notification-action-form" action="{% url 'scheduling:open_notification_event' item.event_id %}">
+                            <form method="post" class="notification-action-form" action="{{ item.open_action_url }}">
                                 {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ item.source_url }}">
-                                <button class="btn btn-secondary" type="submit">Open Event</button>
+                                <input type="hidden" name="next" value="{{ item.open_next_url }}">
+                                <button class="btn btn-secondary" type="submit">{{ item.open_label }}</button>
                             </form>
-                            {% if item.is_unread %}
-                                <form method="post" class="notification-action-form" action="{% url 'scheduling:mark_notification_read' item.event_id %}">
+                            {% if item.mark_read_action_url and item.is_unread %}
+                                <form method="post" class="notification-action-form" action="{{ item.mark_read_action_url }}">
                                     {% csrf_token %}
-                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input type="hidden" name="next" value="{{ item.mark_read_next_url|default:request.get_full_path }}">
                                     <button class="btn btn-ghost" type="submit">Mark as read</button>
                                 </form>
-                            {% else %}
+                            {% elif item.mark_read_action_url %}
                                 <button class="btn btn-ghost notification-read-button is-read" type="button" disabled aria-disabled="true">Marked as read</button>
                             {% endif %}
-                            <form method="post" class="notification-action-form" action="{% url 'scheduling:delete_notification' item.event_id %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <button class="btn btn-delete" type="submit">Delete</button>
-                            </form>
+                            {% if item.delete_action_url %}
+                                <form method="post" class="notification-action-form" action="{{ item.delete_action_url }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ item.delete_next_url|default:request.get_full_path }}">
+                                    <button class="btn btn-delete" type="submit">Delete</button>
+                                </form>
+                            {% endif %}
                         </div>
                     </article>
                 {% endfor %}

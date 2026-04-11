@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Communication Hub | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'communication/hub.css' %}?v=1">
+{% endblock %}
+
+
+{% block content %}
+    <main class="communication-page" id="communication-hub">
+        <section class="container communication-intro">
+            <h1>Communication Hub</h1>
+            <p>
+                Keep everyone in the loop with team announcements, updates, and
+                important information. No more missed messages or confusion.
+            </p>
+        </section>
+
+        <section class="container communication-layout" aria-label="Communication hub panels">
+            <div class="communication-main-column">
+                {% if can_post_announcements %}
+                    <article class="hub-card compose-card" aria-labelledby="compose-title">
+                        <header class="compose-header">
+                            <span class="compose-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M5.5 4.5h13a1 1 0 0 1 1 1V19l-3.5-2.3L12.5 19 9 16.7 5.5 19V5.5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path>
+                                    <path d="M9 9h6M9 12h6M9 15h4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                    <circle cx="18.5" cy="6" r="2" fill="currentColor"></circle>
+                                </svg>
+                            </span>
+                            <div>
+                                <h2 id="compose-title">Post New Announcement</h2>
+                                <p>Share updates with your team instantly</p>
+                            </div>
+                        </header>
+
+                        <form class="compose-form" action="{% url 'communication:hub' %}" method="post" novalidate>
+                            {% csrf_token %}
+                            {% if post_success %}
+                                <p class="compose-feedback compose-feedback-success" role="status">Announcement posted successfully.</p>
+                            {% endif %}
+                            {% if compose_form.non_field_errors %}
+                                <p class="compose-feedback compose-feedback-error" role="alert">{{ compose_form.non_field_errors|join:' ' }}</p>
+                            {% endif %}
+
+                            <label class="field-label" for="announce-title"><strong>Title</strong></label>
+                            <input id="announce-title" name="title" type="text" placeholder="Enter title" value="{{ compose_state.title }}" maxlength="180" required>
+
+                            <label class="field-label" for="announce-body"><strong>Announcement</strong></label>
+                            <textarea id="announce-body" name="body" rows="6" placeholder="Type your announcement here" required>{{ compose_state.body }}</textarea>
+
+                            <div class="field-row">
+                                <div>
+                                    <label class="field-label" for="announce-audience">Send to</label>
+                                    <select id="announce-audience" name="audience" required>
+                                        {% for value, label in audience_choices %}
+                                            <option value="{{ value }}" {% if compose_state.audience == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="field-label" for="announce-priority">Priority Level</label>
+                                    <select id="announce-priority" name="priority" required>
+                                        {% for value, label in priority_choices %}
+                                            <option value="{{ value }}" {% if compose_state.priority == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <fieldset class="notify-settings">
+                                <legend>Notification Settings</legend>
+                                <label>
+                                    <input type="checkbox" name="send_push_notification" {% if compose_state.send_push_notification %}checked{% endif %}>
+                                    <span>Send push notification</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="send_email_notification" {% if compose_state.send_email_notification %}checked{% endif %}>
+                                    <span>Send email notification</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="send_sms_notification" {% if compose_state.send_sms_notification %}checked{% endif %}>
+                                    <span>Send SMS notification (premium)</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="pin_to_top" {% if compose_state.pin_to_top %}checked{% endif %} {% if not can_pin_announcements %}disabled{% endif %}>
+                                    <span>Pin to top of feed (manager only, max 2 days)</span>
+                                </label>
+                            </fieldset>
+
+                            {% if not can_pin_announcements %}
+                                <p class="compose-note">Pinning is only available to managers and will be cleared after 2 days or when a new pin is posted.</p>
+                            {% endif %}
+
+                            <div class="compose-actions">
+                                <button type="submit" class="hub-button hub-button-primary">Post Announcement</button>
+                                <button type="reset" class="hub-button hub-button-muted">Reset</button>
+                            </div>
+                        </form>
+                    </article>
+                {% endif %}
+
+                <article class="hub-card announcements-card" aria-labelledby="recent-title">
+                    <header class="announcements-header">
+                        <span class="announcements-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 7.5C4 6.67 4.67 6 5.5 6h13c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-8L7 21v-3.5H5.5c-.83 0-1.5-.67-1.5-1.5v-8.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+                            </svg>
+                        </span>
+                        <h2 id="recent-title">Recent Announcements</h2>
+                    </header>
+
+                    <div class="announcement-list" role="list" data-announcement-list>
+                        {% if announcements %}
+                            {% for announcement in announcements %}
+                                <article class="announcement-item" role="listitem">
+                                    <div class="announcement-top">
+                                        <h3>{{ announcement.title|default:"Untitled Announcement" }}</h3>
+                                        <div class="badges">
+                                            {% if announcement.is_pinned %}
+                                                <span class="badge badge-pinned">Pinned</span>
+                                            {% endif %}
+                                            {% if announcement.badges %}
+                                                {% for badge in announcement.badges %}
+                                                    <span class="badge badge-{{ badge.variant|default:'default' }}">{{ badge.label|default:"Tag" }}</span>
+                                                {% endfor %}
+                                            {% elif announcement.priority %}
+                                                <span class="badge badge-{{ announcement.priority|lower }}">{{ announcement.priority }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% with author_name=announcement.author_name|default:"Unknown author" created_label=announcement.created_label|default:"" %}
+                                        <p class="meta">{{ author_name }}{% if created_label %} · {{ created_label }}{% endif %}</p>
+                                    {% endwith %}
+                                    <p class="announcement-copy">{{ announcement.body|default:"No announcement content available." }}</p>
+                                    {% with view_count=announcement.view_count|default:"--" %}
+                                        <p class="views"><span class="views-value{% if view_count == '--' %} value-empty{% endif %}">{{ view_count }}</span> people saw this</p>
+                                    {% endwith %}
+                                    <div class="announcement-actions">
+                                        {% if announcement.is_read %}
+                                            <span class="announcement-read-tag">Read</span>
+                                        {% else %}
+                                            <form method="post" action="{% url 'communication:mark_read' announcement.id %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="announcement-read-button">Set as read</button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        {% else %}
+                            <article class="announcement-empty" aria-live="polite">
+                                <h3>No announcements yet</h3>
+                            </article>
+                        {% endif %}
+                    </div>
+                </article>
+            </div>
+
+            <aside class="communication-side-column" aria-label="Communication summary">
+                <article class="week-card">
+                    <span class="week-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M6 5.5h12A1.5 1.5 0 0 1 19.5 7v10A1.5 1.5 0 0 1 18 18.5H8l-3.5 2V7A1.5 1.5 0 0 1 6 5.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <h2>This Week</h2>
+                    {% with announcements_sent=weekly_stats.announcements_sent|default_if_none:"--" %}
+                        <p class="week-number{% if announcements_sent == '--' %} value-empty{% endif %}" data-week-sent>{{ announcements_sent }}</p>
+                    {% endwith %}
+                    <p class="week-caption">Announcements For You</p>
+
+                    <div class="read-rate-pill">
+                        <span>Average Read Rate</span>
+                        {% with read_rate=weekly_stats.average_read_rate|default_if_none:"--" %}
+                            <strong class="{% if read_rate == '--' %}value-empty{% endif %}" data-week-read-rate>{% if read_rate == "--" %}--{% else %}{{ read_rate }}%{% endif %}</strong>
+                        {% endwith %}
+                    </div>
+                </article>
+
+                <article class="hub-card quick-stats-card" aria-labelledby="quick-stats-title">
+                    <div class="quick-stats-header">
+                        <span class="quick-stats-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <circle cx="10" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.9"></circle>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </span>
+                        <h2 id="quick-stats-title">Quick Stats</h2>
+                    </div>
+                    <dl>
+                        <div>
+                            <dt>Total Members</dt>
+                            {% with total_members=quick_stats.total_members|default_if_none:"--" %}
+                                <dd class="value-total{% if total_members == '--' %} value-empty{% endif %}" data-stat-total-members>{{ total_members }}</dd>
+                            {% endwith %}
+                        </div>
+                        <div>
+                            <dt>Online Now</dt>
+                            {% with online_now=quick_stats.online_now|default_if_none:"--" %}
+                                <dd class="value-positive{% if online_now == '--' %} value-empty{% endif %}" data-stat-online-now>{{ online_now }}</dd>
+                            {% endwith %}
+                        </div>
+                        <div>
+                            <dt>Unread Messages</dt>
+                            {% with unread_messages=quick_stats.unread_messages|default_if_none:"--" %}
+                                <dd class="value-alert{% if unread_messages == '--' %} value-empty{% endif %}" data-stat-unread-messages>{{ unread_messages }}</dd>
+                            {% endwith %}
+                        </div>
+                        <div>
+                            <dt>Avg Response Time</dt>
+                            {% with avg_response_time=quick_stats.avg_response_time|default_if_none:"--" %}
+                                <dd class="value-link{% if avg_response_time == '--' %} value-empty{% endif %}" data-stat-avg-response>{{ avg_response_time }}</dd>
+                            {% endwith %}
+                        </div>
+                    </dl>
+                </article>
+
+                <article class="hub-card all-announcements-card" aria-labelledby="all-announcements-title">
+                    <h3 id="all-announcements-title">All Announcements</h3>
+                    <p>You have access to {{ all_announcements_count }} announcements.</p>
+                    <a class="hub-button hub-button-primary all-announcements-button" href="{% url 'communication:announcements' %}">View all announcements</a>
+                </article>
+            </aside>
+        </section>
+    </main>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        (() => {
+            const onlineNowNode = document.querySelector("[data-stat-online-now]");
+            if (!onlineNowNode) {
+                return;
+            }
+
+            const heartbeatIntervalMs = 15000;
+            const reconnectDelayMs = 2000;
+            const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+            const wsUrl = `${wsScheme}://${window.location.host}/ws/communication/presence/`;
+
+            let socket = null;
+            let heartbeatTimer = null;
+            let reconnectTimer = null;
+
+            const setOnlineValue = (onlineNow) => {
+                if (onlineNow === null || onlineNow === undefined) {
+                    onlineNowNode.textContent = "--";
+                    onlineNowNode.classList.add("value-empty");
+                    return;
+                }
+
+                onlineNowNode.textContent = String(onlineNow);
+                if (String(onlineNow) === "--") {
+                    onlineNowNode.classList.add("value-empty");
+                } else {
+                    onlineNowNode.classList.remove("value-empty");
+                }
+            };
+
+            const clearHeartbeatTimer = () => {
+                if (heartbeatTimer) {
+                    window.clearInterval(heartbeatTimer);
+                    heartbeatTimer = null;
+                }
+            };
+
+            const clearReconnectTimer = () => {
+                if (reconnectTimer) {
+                    window.clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            };
+
+            const sendPresencePing = () => {
+                if (!socket || socket.readyState !== WebSocket.OPEN) {
+                    return;
+                }
+                socket.send(JSON.stringify({ type: "presence.ping" }));
+            };
+
+            const scheduleReconnect = () => {
+                if (reconnectTimer) {
+                    return;
+                }
+                reconnectTimer = window.setTimeout(() => {
+                    reconnectTimer = null;
+                    connectPresenceSocket();
+                }, reconnectDelayMs);
+            };
+
+            const connectPresenceSocket = () => {
+                if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+                    return;
+                }
+
+                socket = new WebSocket(wsUrl);
+
+                socket.addEventListener("open", () => {
+                    clearReconnectTimer();
+                    socket.send(JSON.stringify({ type: "presence.request" }));
+                    sendPresencePing();
+                    clearHeartbeatTimer();
+                    heartbeatTimer = window.setInterval(sendPresencePing, heartbeatIntervalMs);
+                });
+
+                socket.addEventListener("message", (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload && payload.type === "presence.count") {
+                            setOnlineValue(payload.online_now);
+                        }
+                    } catch (error) {
+                        // Ignore malformed websocket payloads.
+                    }
+                });
+
+                socket.addEventListener("close", (event) => {
+                    clearHeartbeatTimer();
+                    if (event.code === 4401 || event.code === 4403) {
+                        return;
+                    }
+                    scheduleReconnect();
+                });
+
+                socket.addEventListener("error", () => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.close();
+                    }
+                });
+            };
+
+            window.addEventListener("beforeunload", () => {
+                clearHeartbeatTimer();
+                clearReconnectTimer();
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
+                }
+            });
+
+            connectPresenceSocket();
+        })();
+    </script>
+{% endblock %}

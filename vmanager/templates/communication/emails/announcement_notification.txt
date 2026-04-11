@@ -1,0 +1,13 @@
+Hi {{ first_name }},
+
+A new announcement has been posted in V-Manager.
+
+Title: {{ announcement_title }}
+Priority: {{ priority }}
+Audience: {{ audience }}
+From: {{ sender_name }}
+
+Message:
+{{ announcement_body }}
+
+Please sign in to V-Manager to view full details.

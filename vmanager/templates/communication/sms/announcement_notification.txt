@@ -1,0 +1,1 @@
+V-Manager: New announcement "{{ announcement_title|truncatechars:40 }}" ({{ priority }}) from {{ sender_name|truncatechars:20 }}. Check the app for full details.

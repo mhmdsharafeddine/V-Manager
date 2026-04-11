@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}All Announcements | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'communication/hub.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+    <main class="communication-page communication-all-page" id="all-announcements-page">
+        <section class="container communication-intro">
+            <h1>All Announcements</h1>
+            <p>Showing every announcement available to your account ({{ announcement_count }} total).</p>
+            <a class="all-announcements-back-link" href="{% url 'communication:hub' %}">Back to Communication Hub</a>
+        </section>
+
+        <section class="container all-announcements-layout" aria-label="All announcements panel">
+            <article class="hub-card announcements-card all-announcements-list-card" aria-labelledby="all-announcements-title">
+                <header class="announcements-header">
+                    <span class="announcements-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M4 7.5C4 6.67 4.67 6 5.5 6h13c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-8L7 21v-3.5H5.5c-.83 0-1.5-.67-1.5-1.5v-8.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <h2 id="all-announcements-title">Announcements Feed</h2>
+                </header>
+
+                <div class="announcement-list" role="list">
+                    {% if announcements %}
+                        {% for announcement in announcements %}
+                            <article class="announcement-item" role="listitem">
+                                <div class="announcement-top">
+                                    <h3>{{ announcement.title|default:"Untitled Announcement" }}</h3>
+                                    <div class="badges">
+                                        {% if announcement.is_pinned %}
+                                            <span class="badge badge-pinned">Pinned</span>
+                                        {% endif %}
+                                        {% if announcement.badges %}
+                                            {% for badge in announcement.badges %}
+                                                <span class="badge badge-{{ badge.variant|default:'default' }}">{{ badge.label|default:"Tag" }}</span>
+                                            {% endfor %}
+                                        {% elif announcement.priority %}
+                                            <span class="badge badge-{{ announcement.priority|lower }}">{{ announcement.priority }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <p class="meta">{{ announcement.author_name|default:"Unknown author" }}{% if announcement.created_label %} · {{ announcement.created_label }}{% endif %}</p>
+                                <p class="announcement-copy">{{ announcement.body|default:"No announcement content available." }}</p>
+                                {% with view_count=announcement.view_count|default:"--" %}
+                                    <p class="views"><span class="views-value{% if view_count == '--' %} value-empty{% endif %}">{{ view_count }}</span> people saw this</p>
+                                {% endwith %}
+                                <div class="announcement-actions">
+                                    {% if announcement.is_read %}
+                                        <span class="announcement-read-tag">Read</span>
+                                    {% else %}
+                                        <form method="post" action="{% url 'communication:mark_read' announcement.id %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit" class="announcement-read-button">Set as read</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <article class="announcement-empty" aria-live="polite">
+                            <h3>No announcements available</h3>
+                        </article>
+                    {% endif %}
+                </div>
+            </article>
+        </section>
+    </main>
+{% endblock %}

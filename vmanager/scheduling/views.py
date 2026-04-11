@@ -19,6 +19,7 @@ from .notifications import (
     build_user_notifications_context,
     delete_notifications,
     get_user_notifications,
+    mark_all_user_notifications_read,
     mark_notifications_read,
 )
 
@@ -506,10 +507,8 @@ def mark_notification_read_view(request, event_id):
 @login_required
 @require_POST
 def mark_all_notifications_read_view(request):
-    notifications = get_user_notifications(request.user)
-    event_ids = [item["event_id"] for item in notifications if item["is_unread"]]
-    if event_ids:
-        mark_notifications_read(request.user, event_ids)
+    updated_count = mark_all_user_notifications_read(request.user)
+    if updated_count:
         messages.success(request, "Notifications marked as read.")
     next_url = (request.POST.get("next") or "").strip()
     if next_url:

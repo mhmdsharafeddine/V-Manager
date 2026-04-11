@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     
     'core',
     'accounts',
@@ -55,11 +56,13 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'accounts.middleware.JWTAuthenticationMiddleware',
+    'communication.middleware.LastSeenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'vmanager.urls'
+ASGI_APPLICATION = 'vmanager.asgi.application'
 
 TEMPLATES = [
     {
@@ -79,6 +82,15 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'vmanager.wsgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
+
+COMMUNICATION_PRESENCE_HEARTBEAT_TIMEOUT_SECONDS = 45
+COMMUNICATION_PRESENCE_FALLBACK_WINDOW_SECONDS = 300
 
 
 # Database
