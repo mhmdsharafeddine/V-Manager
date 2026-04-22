@@ -55,7 +55,11 @@ def match_readiness_page(request):
     players = []
 
     for member in memberships:
-
+        try:
+            photo = member.user.profile.profile_photo
+            avatar_url = photo.url if photo else ""
+        except Exception:
+            avatar_url = ""
         records = TeamPerformanceRecord.objects.filter(member=member)
 
         # ── STATS ─────────────────────────────────────
@@ -127,6 +131,7 @@ def match_readiness_page(request):
             "last_match":    last_match_date,
 
             "readiness":     readiness_score,
+            "avatar": avatar_url,
         })
 
     return render(request, "matchreadiness/matchreadiness.html", {

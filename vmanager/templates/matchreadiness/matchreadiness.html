@@ -547,7 +547,7 @@
       <div>
         <div class="mrs-player-name">{{ p.name }}</div>
         <div class="mrs-player-pos">{{ p.position }}</div>
-        <span class="mrs-badge {{ p.health|lower }}">{{ p.health }}</span>
+        <span class="mrs-badge {{ p.health_class }}">{{ p.health }}</span>
       </div>
     </div>
 
@@ -596,7 +596,8 @@
         '{{ p.health_class|escapejs }}',
         {{ p.kills }}, {{ p.aces }}, {{ p.blocks }},
         {{ p.matches_played }}, '{{ p.last_match|escapejs }}',
-        {{ p.attendance }}, {{ p.readiness }}
+        {{ p.attendance }}, {{ p.readiness }},
+        '{{ p.avatar|escapejs }}'
       )">View Details</button>
     </div>
 
@@ -628,6 +629,36 @@
   </div>
 </div>
 
+<!-- FOOTER -->
+<div class="mrs-footer">
+  <div class="mrs-footer-inner">
+    <div class="mrs-footer-brand">
+      <div class="brand-name">⚡ V-Manager</div>
+      <p>The complete solution for volleyball club management.</p>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Product</h4>
+      <a href="#">Features</a>
+      <a href="#">Pricing</a>
+      <a href="#">Testimonials</a>
+      <a href="#">Updates</a>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Company</h4>
+      <a href="#">About</a>
+      <a href="#">Blog</a>
+      <a href="#">Careers</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Support</h4>
+      <a href="#">Help Center</a>
+      <a href="#">Documentation</a>
+      <a href="#">API Reference</a>
+      <a href="#">Community</a>
+    </div>
+  </div>
+</div>
 
 <!-- ── MATCH MODAL ─────────────────────────────────── -->
 <div class="mrs-overlay" id="matchModalOverlay" onclick="closeMatchModal(event)">
@@ -677,8 +708,15 @@
   <div class="mrs-modal">
     <button class="mrs-modal-close" onclick="closePlayerModal()">✕</button>
 
-    <div class="mrs-modal-title" id="pm-name"></div>
-    <div class="mrs-modal-sub" id="pm-pos"></div>
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
+      <div id="pm-avatar-wrap" style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#d0e8f0,#b0d0e0);flex-shrink:0;overflow:hidden;">
+        <img id="pm-avatar" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+      </div>
+      <div>
+        <div class="mrs-modal-title" id="pm-name"></div>
+        <div class="mrs-modal-sub" id="pm-pos"></div>
+      </div>
+    </div>
 
     <div class="mrs-modal-section">Performance Stats</div>
     <div class="mrs-modal-grid">
@@ -744,8 +782,8 @@
     document.body.style.overflow = '';
   }
 
-
-  function openPlayerModal(name, pos, health, healthClass, kills, aces, blocks, games, lastMatch, attendance, readiness) {
+  /* ── Player modal ── */
+  function openPlayerModal(name, pos, health, healthClass, kills, aces, blocks, games, lastMatch, attendance, readiness, avatar) {
     document.getElementById('pm-name').textContent       = name;
     document.getElementById('pm-pos').textContent        = pos;
     document.getElementById('pm-kills').textContent      = kills;
@@ -759,6 +797,15 @@
     const badge = document.getElementById('pm-health');
     badge.className = 'mrs-modal-badge ' + healthClass;
     badge.textContent = health;
+
+    const img = document.getElementById('pm-avatar');
+    if (avatar) {
+      img.src = avatar;
+      img.style.display = 'block';
+    } else {
+      img.src = '';
+      img.style.display = 'none';
+    }
 
     document.getElementById('playerModalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';

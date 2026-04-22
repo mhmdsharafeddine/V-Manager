@@ -81,13 +81,13 @@ def home(request):
     for r in records:
         member = r.member
         user = member.user
-
+        
         if member.id not in player_map:
             print(member.user.profile.position)
             player_map[member.id] = {
                 "id": member.id,
                 "name": user.get_full_name() or user.email,
-                "avatar": getattr(getattr(user, "profile", None), "avatar", None),
+                "avatar": (user.profile.profile_photo.url if hasattr(user, "profile") and user.profile.profile_photo else ""),
                 "position":member.user.profile.position  or "Player",
                 "kills": 0,
                 "aces": 0,
