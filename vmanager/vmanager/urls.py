@@ -29,6 +29,7 @@ urlpatterns = [
     path('performance/', include('performance.urls')),
     path('communication/', include('communication.urls')),
     path('ai-hub/', include('ai_hub_evolution.urls')),
+    path('match-readiness/', include('matchreadiness.urls')),
 ]
 
 if settings.DEBUG:

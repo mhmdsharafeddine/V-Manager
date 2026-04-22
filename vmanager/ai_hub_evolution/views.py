@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.db.models import Avg, Sum
 from team_management.models import TeamMembership
 from performance.models import TeamPerformanceRecord
-
+from django.contrib.auth.decorators import login_required
 MAX_KILLS = 20
 MAX_ACES = 5
 MAX_BLOCKS = 10
@@ -56,7 +56,7 @@ def compute_skill_tags(kills, aces, blocks, games, rating):
 
 
 # Determine season start year
-
+@login_required
 def home(request):
     
     user = request.user

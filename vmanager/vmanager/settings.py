@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'performance',
     'communication',
     'ai_hub_evolution',
+    'matchreadiness',
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+    background: #f0f4f8;
+    color: #1a2b3c;
+  }
+
+  /* ─── HERO ─────────────────────────────────────── */
+  .mrs-hero {
+    background: #f0f9f7;
+    padding: 48px 0 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mrs-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='12' fill='none' stroke='%2300b89440' stroke-width='2'/%3E%3Cpath d='M22 30 Q30 18 38 30 Q30 42 22 30' fill='none' stroke='%2300b89440' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-size: 60px 60px;
+    opacity: 0.6;
+  }
+  .mrs-hero-inner {
+    max-width: 900px;
+    margin: auto;
+    padding: 0 24px;
+    position: relative;
+  }
+  .mrs-hero h1 {
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: #1a2b3c;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .mrs-hero p {
+    font-size: 0.95rem;
+    color: #4a6070;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  /* ─── NEXT MATCH BANNER ─────────────────────────── */
+  .mrs-match-banner {
+    max-width: 900px;
+    margin: 24px auto 0;
+    padding: 0 24px;
+    position: relative;
+  }
+  .mrs-match-card {
+    background: linear-gradient(135deg, #1ab5a3, #0e9f8e);
+    border-radius: 16px;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: white;
+    box-shadow: 0 8px 24px rgba(26,181,163,0.3);
+  }
+  .mrs-match-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.85;
+    margin-bottom: 4px;
+  }
+  .mrs-match-vs {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .mrs-match-meta {
+    font-size: 0.8rem;
+    opacity: 0.85;
+    margin-top: 4px;
+  }
+  .mrs-match-meta svg { vertical-align: middle; margin-right: 4px; }
+  .mrs-view-btn {
+    background: white;
+    color: #0e9f8e;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: box-shadow 0.2s;
+  }
+  .mrs-view-btn:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+  /* ─── TOOLBAR ──────────────────────────────────── */
+  .mrs-toolbar {
+    max-width: 900px;
+    margin: 20px auto 0;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mrs-tabs {
+    display: flex;
+    gap: 6px;
+    background: white;
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  .mrs-tab {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #6b7f8e;
+    border: none;
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .mrs-tab.active {
+    background: #1ab5a3;
+    color: white;
+  }
+  .mrs-upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1.5px solid #d0dce6;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #3a5060;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .mrs-upload-btn:hover { border-color: #1ab5a3; color: #1ab5a3; }
+
+  /* ─── PLAYER CARDS ─────────────────────────────── */
+  .mrs-list {
+    max-width: 900px;
+    margin: 20px auto 0;
+    padding: 0 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .mrs-card {
+    background: white;
+    border-radius: 16px;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 180px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .mrs-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-1px); }
+
+  /* Left column */
+  .mrs-player-info { display: flex; align-items: center; gap: 12px; }
+  .mrs-avatar {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #d0e8f0, #b0d0e0);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .mrs-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .mrs-player-name { font-size: 0.97rem; font-weight: 700; color: #1a2b3c; }
+  .mrs-player-pos { font-size: 0.78rem; color: #6b7f8e; margin-top: 2px; }
+  .mrs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .mrs-badge::before { content: '●'; font-size: 8px; }
+  .mrs-badge.healthy  { background: #e6f9f2; color: #0da56a; }
+  .mrs-badge.healthy::before  { color: #0da56a; }
+  .mrs-badge.recovering { background: #fff0f0; color: #e03030; }
+  .mrs-badge.recovering::before { color: #e03030; }
+  .mrs-badge.minor { background: #fff8e6; color: #d08000; }
+  .mrs-badge.minor::before { color: #d08000; }
+
+  /* Middle column */
+  .mrs-metrics {}
+  .mrs-readiness-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .mrs-readiness-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #6b7f8e;
+    font-weight: 600;
+  }
+  .mrs-readiness-label svg { color: #1ab5a3; }
+  .mrs-score-pct {
+    font-size: 1.35rem;
+    font-weight: 800;
+  }
+  .score-green  { color: #0da56a; }
+  .score-yellow { color: #f0a500; }
+  .score-orange { color: #e06000; }
+  .score-red    { color: #e03030; }
+
+  .mrs-bar-track {
+    height: 8px;
+    background: #e8eef4;
+    border-radius: 99px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .mrs-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s ease;
+  }
+
+  .mrs-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .mrs-stat-item {}
+  .mrs-stat-label {
+    font-size: 0.72rem;
+    color: #8a9eae;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .mrs-stat-val {
+    font-size: 1rem;
+    font-weight: 800;
+  }
+  .val-green  { color: #0da56a; }
+  .val-orange { color: #f0a500; }
+  .val-blue   { color: #1ab5a3; }
+
+  /* Right column */
+  .mrs-right {
+    text-align: right;
+    min-width: 120px;
+  }
+  .mrs-matches-info {
+    font-size: 0.78rem;
+    color: #6b7f8e;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .mrs-details-btn {
+    border: 1.5px solid #d0dce6;
+    border-radius: 8px;
+    background: white;
+    color: #3a5060;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mrs-details-btn:hover { border-color: #1ab5a3; color: #1ab5a3; }
+
+  /* ─── HOW IT WORKS ─────────────────────────────── */
+  .mrs-how {
+    background: #f0f9f7;
+    padding: 60px 24px;
+    text-align: center;
+  }
+  .mrs-how h2 {
+    font-size: 1.9rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    color: #1a2b3c;
+  }
+  .mrs-how p {
+    color: #5a7080;
+    font-size: 0.92rem;
+    max-width: 480px;
+    margin: 0 auto 36px;
+    line-height: 1.6;
+  }
+  .mrs-how-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 860px;
+    margin: auto;
+  }
+  .mrs-how-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px 20px;
+    text-align: left;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .mrs-how-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+    font-size: 1.2rem;
+  }
+  .mrs-how-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #1a2b3c;
+    margin-bottom: 8px;
+  }
+  .mrs-how-desc {
+    font-size: 0.78rem;
+    color: #6b7f8e;
+    line-height: 1.6;
+  }
+
+  /* ─── FOOTER ────────────────────────────────────── */
+  .mrs-footer {
+    background: #0d1e2c;
+    color: #8a9eae;
+    padding: 48px 24px 32px;
+  }
+  .mrs-footer-inner {
+    max-width: 900px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    gap: 32px;
+  }
+  .mrs-footer-brand .brand-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 6px;
+  }
+  .mrs-footer-brand p { font-size: 0.78rem; line-height: 1.6; }
+  .mrs-footer-col h4 { color: white; font-size: 0.85rem; font-weight: 700; margin-bottom: 14px; }
+  .mrs-footer-col a {
+    display: block;
+    color: #8a9eae;
+    text-decoration: none;
+    font-size: 0.78rem;
+    margin-bottom: 8px;
+    transition: color 0.2s;
+  }
+  .mrs-footer-col a:hover { color: #1ab5a3; }
+
+  /* ─── RESPONSIVE ────────────────────────────────── */
+  @media (max-width: 640px) {
+    .mrs-card { grid-template-columns: 1fr; }
+    .mrs-how-grid { grid-template-columns: 1fr; }
+    .mrs-footer-inner { grid-template-columns: 1fr 1fr; }
+    .mrs-hero h1 { font-size: 1.8rem; }
+  }
+</style>
+
+<!-- HERO -->
+<div class="mrs-hero">
+  <div class="mrs-hero-inner">
+    <h1>Match Readiness Score</h1>
+    <p>Assess player readiness at a glance with our Machine Learning Model based on attendance (40%), recent performance (40%), and injury status (20%). Make data-driven lineup decisions with confidence.</p>
+  </div>
+</div>
+
+<!-- NEXT MATCH BANNER -->
+<div class="mrs-match-banner">
+  <div class="mrs-match-card">
+    <div>
+      <div class="mrs-match-label">🏆 Next Match</div>
+      <div class="mrs-match-vs">vs Meis Al Jabal Lions</div>
+      <div class="mrs-match-meta">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Feb 15, 2026 at 7:00 PM • Central Sports Arena
+      </div>
+    </div>
+    <button class="mrs-view-btn">View Match Details</button>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="mrs-toolbar">
+  <div class="mrs-tabs">
+    <button class="mrs-tab active" onclick="filterPlayers('all', this)">Full roster</button>
+    <button class="mrs-tab" onclick="filterPlayers('ready', this)">Match Ready (85%+)</button>
+    <button class="mrs-tab" onclick="filterPlayers('not_ready', this)">Not Ready</button>
+  </div>
+  <button class="mrs-upload-btn">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+    Upload
+  </button>
+</div>
+
+<!-- PLAYER LIST -->
+<div class="mrs-list" id="playerList">
+  {% for p in players %}
+  {% with score=p.readiness %}
+  <div class="mrs-card" data-readiness="{{ score }}">
+
+    <!-- LEFT: player info -->
+    <div class="mrs-player-info">
+      <div class="mrs-avatar">
+        {% if p.avatar %}
+          <img src="{{ p.avatar }}" alt="{{ p.name }}">
+        {% endif %}
+      </div>
+      <div>
+        <div class="mrs-player-name">{{ p.name }}</div>
+        <div class="mrs-player-pos">{{ p.position }}</div>
+        <span class="mrs-badge {{ p.health|lower }}">{{ p.health }}</span>
+      </div>
+    </div>
+
+    <!-- MIDDLE: metrics -->
+    <div class="mrs-metrics">
+      <div class="mrs-readiness-row">
+        <span class="mrs-readiness-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1ab5a3" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Match Readiness
+        </span>
+        <span class="mrs-score-pct {% if score >= 85 %}score-green{% elif score >= 75 %}score-yellow{% else %}score-orange{% endif %}">
+          {{ score }}%
+        </span>
+      </div>
+      <div class="mrs-bar-track">
+        <div class="mrs-bar-fill"
+          style="width:{{ score }}%; background:{% if score >= 85 %}#0da56a{% elif score >= 75 %}#f0a500{% else %}#e06000{% endif %};">
+        </div>
+      </div>
+      <div class="mrs-stats-row">
+        <div class="mrs-stat-item">
+          <div class="mrs-stat-label">Attendance</div>
+          <div class="mrs-stat-val val-blue">{{ p.attendance }}%</div>
+        </div>
+        <div class="mrs-stat-item">
+          <div class="mrs-stat-label">Performance</div>
+          <div class="mrs-stat-val val-orange">{{ p.performance }}%</div>
+        </div>
+        <div class="mrs-stat-item">
+          <div class="mrs-stat-label">Health</div>
+          <div class="mrs-stat-val val-green">{{ p.health_score }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: matches info -->
+    <div class="mrs-right">
+      <div class="mrs-matches-info">
+        {{ p.matches_played }} matches played<br>
+        Last: {{ p.last_match }}
+      </div>
+      <button class="mrs-details-btn">View Details</button>
+    </div>
+
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="mrs-how">
+  <h2>How the readiness score works</h2>
+  <p>The Match Readiness Score uses a ML model to give coaches a clear, objective view of each player's readiness</p>
+  <div class="mrs-how-grid">
+    <div class="mrs-how-card">
+      <div class="mrs-how-icon" style="background:#e6f9f2;">📋</div>
+      <div class="mrs-how-title">Attendance (40%)</div>
+      <div class="mrs-how-desc">Training session attendance over the past 4 weeks. Consistent participation is key to match readiness.</div>
+    </div>
+    <div class="mrs-how-card">
+      <div class="mrs-how-icon" style="background:#fff8e6;">🏆</div>
+      <div class="mrs-how-title">Performance (40%)</div>
+      <div class="mrs-how-desc">Recent skill ratings and match performance data. Tracks form and game-time effectiveness.</div>
+    </div>
+    <div class="mrs-how-card">
+      <div class="mrs-how-icon" style="background:#f0f9ff;">📈</div>
+      <div class="mrs-how-title">Health Status (20%)</div>
+      <div class="mrs-how-desc">Current injury status and recovery progress. Ensures player safety and long-term development.</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="mrs-footer">
+  <div class="mrs-footer-inner">
+    <div class="mrs-footer-brand">
+      <div class="brand-name">⚡ V-Manager</div>
+      <p>The complete solution for volleyball club management.</p>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Product</h4>
+      <a href="#">Features</a>
+      <a href="#">Pricing</a>
+      <a href="#">Testimonials</a>
+      <a href="#">Updates</a>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Company</h4>
+      <a href="#">About</a>
+      <a href="#">Blog</a>
+      <a href="#">Careers</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="mrs-footer-col">
+      <h4>Support</h4>
+      <a href="#">Help Center</a>
+      <a href="#">Documentation</a>
+      <a href="#">API Reference</a>
+      <a href="#">Community</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  function filterPlayers(type, btn) {
+    document.querySelectorAll('.mrs-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.mrs-card').forEach(card => {
+      const score = parseInt(card.dataset.readiness);
+      if (type === 'ready')     card.style.display = score >= 85 ? '' : 'none';
+      else if (type === 'not_ready') card.style.display = score < 85 ? '' : 'none';
+      else card.style.display = '';
+    });
+  }
+</script>
+
+{% endblock %}
