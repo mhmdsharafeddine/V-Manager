@@ -28,6 +28,7 @@ urlpatterns = [
     path('schedule/', include('scheduling.urls')),
     path('performance/', include('performance.urls')),
     path('communication/', include('communication.urls')),
+    path('ai-hub/', include('ai_hub_evolution.urls')),
 ]
 
 if settings.DEBUG:

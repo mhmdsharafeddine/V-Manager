@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'scheduling',
     'performance',
     'communication',
+    'ai_hub_evolution',
 ]
 
 MIDDLEWARE = [
