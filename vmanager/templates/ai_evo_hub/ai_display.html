@@ -666,7 +666,7 @@ function selectPlayer(index, memberId) {
 
   const insight = playerInsights[player.id];
   document.getElementById('p-insight').textContent =
-    insight ?? (skills.length ? `${player.name} is strongest in ${skills[0].name}.` : 'No insight available.');
+    insight ?? (skills.length ? `${player.name}'s insight is loading...` : 'No insight available.');
 
   
   const stats = player.monthly_stats || {

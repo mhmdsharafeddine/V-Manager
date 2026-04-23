@@ -15,6 +15,20 @@ MAX_ACES = 5
 MAX_BLOCKS = 10
 MONTHS = [9, 10, 11, 12, 1, 2]  # Sep → Feb
 MONTH_INDEX = {m: i for i, m in enumerate(MONTHS)}
+POSITION_WEIGHTS = {
+    # position string (lowercase) : (kills_w, aces_w, blocks_w)
+    "outside hitter":  (0.50, 0.25, 0.25),
+    "opposite hitter": (0.55, 0.25, 0.20),
+    "middle blocker":  (0.35, 0.20, 0.45),
+    "setter":          (0.20, 0.45, 0.35),
+    "libero":          (0.20, 0.45, 0.35),
+    "right side":      (0.50, 0.25, 0.25),
+    "player":          (0.40, 0.30, 0.30),  # default fallback
+}
+
+def compute_rating(kills_pct, aces_pct, blocks_pct, position="player"):
+    kw, aw, bw = POSITION_WEIGHTS.get(position.lower().strip(), (0.40, 0.30, 0.30))
+    return round(kills_pct * kw + aces_pct * aw + blocks_pct * bw, 1)
 
 def safe_avg(values, games):
     return [
@@ -59,7 +73,7 @@ def compute_skill_tags(kills, aces, blocks, games, rating):
 
 def to_pct(values, games, max_val):
     return [
-        round((values[i] / games[i]) / max_val * 100, 1) if games[i] > 0 else 0
+        min(100.0, round((values[i] / games[i]) / max_val * 100, 1)) if games[i] > 0 else 0
         for i in range(6)
     ]
 
@@ -132,53 +146,48 @@ def home(request):
     
 
     for p in player_map.values():
-        
-        games = max(p["count"], 1)
-        kills_score = (p["kills"] / games) / MAX_KILLS * 100
-        aces_score  = (p["aces"] / games) / MAX_ACES * 100
-        blocks_score = (p["blocks"] / games) / MAX_BLOCKS * 100
+        games  = max(p["count"], 1)
         monthly = p["monthly"]
-        rating = (
-            kills_score * 0.4 +
-            aces_score * 0.3 +
-            blocks_score * 0.3
-        )
-        skills = compute_skill_tags(
-        p["kills"], p["aces"], p["blocks"], games, rating
-        )
-
-       
-        best_skill = max(skills, key=lambda x: x["level"]) if skills else None
-    
+        position = p["position"]
+        # ── Monthly pct arrays (same formula for both chart + overall) ──
         monthly_kill_pct  = to_pct(monthly["kills"],  monthly["games"], MAX_KILLS)
         monthly_ace_pct   = to_pct(monthly["aces"],   monthly["games"], MAX_ACES)
         monthly_block_pct = to_pct(monthly["blocks"], monthly["games"], MAX_BLOCKS)
         monthly_rating    = [
-            round(monthly_kill_pct[i]*0.4 + monthly_ace_pct[i]*0.3 + monthly_block_pct[i]*0.3, 1)
+            compute_rating(monthly_kill_pct[i], monthly_ace_pct[i], monthly_block_pct[i],position)
             for i in range(6)
         ]
 
+        # ── Overall rating = average of months that had games ──────────
+        # This makes it consistent with what the chart shows
+        played_ratings = [monthly_rating[i] for i in range(6) if monthly["games"][i] > 0]
+        rating = round(sum(played_ratings) / len(played_ratings)) if played_ratings else 0
+
+        # ── Season-total pcts (used only for skill tags) ───────────────
+        kills_pct  = (p["kills"]  / games) / MAX_KILLS  * 100
+        aces_pct   = (p["aces"]   / games) / MAX_ACES   * 100
+        blocks_pct = (p["blocks"] / games) / MAX_BLOCKS * 100
+
+        skills     = compute_skill_tags(p["kills"], p["aces"], p["blocks"], games, rating)
+        best_skill = max(skills, key=lambda x: x["level"]) if skills else None
+
         players.append({
-            "id": p["id"],
-            "name": p["name"],
-            "avatar": p["avatar"],
-            "position": p["position"],
-            "rating": round(rating),
-            "growth": round((p["aces"] / games) * 10),
-            "primary_tag": best_skill["name"] if best_skill else "No Tag",
-            "tag_icon": best_skill["icon"] if best_skill else "⭐",
-            "tag_color": best_skill["color"] if best_skill else "purple",
-
-            "skills": compute_skill_tags(
-            p["kills"], p["aces"], p["blocks"], games, rating
-            ),
-
-             "monthly_stats": {
-            "attack_eff":  monthly_kill_pct,
-            "serving_ace": monthly_ace_pct,
-            "blocking":    monthly_block_pct,
-            "rating":      monthly_rating,
-        },
+            "id":          p["id"],
+            "name":        p["name"],
+            "avatar":      p["avatar"],
+            "position":    p["position"],
+            "rating":      rating,               # ← now matches monthly scale
+            "growth":      round((p["aces"] / games) * 10),
+            "primary_tag": best_skill["name"]  if best_skill else "No Tag",
+            "tag_icon":    best_skill["icon"]  if best_skill else "⭐",
+            "tag_color":   best_skill["color"] if best_skill else "purple",
+            "skills":      skills,
+            "monthly_stats": {
+                "attack_eff":  monthly_kill_pct,
+                "serving_ace": monthly_ace_pct,
+                "blocking":    monthly_block_pct,
+                "rating":      monthly_rating,   # ← same compute_rating() used here
+            },
         })
     
 
@@ -257,18 +266,34 @@ def generate_insights(request):
         name = p.get("name", "Player")
         skills = p.get("skills", [])
         stats = p.get("monthly_stats", {})
-
+        position = p.get("position", "Unknown")
         # Build prompt
+        kw, aw, bw = POSITION_WEIGHTS.get(position.lower().strip(), (0.40, 0.30, 0.30))
         prompt = f"""
-        You are a professional volleyball coach.
+        You are an expert volleyball performance analyst reviewing a player's season data.
 
-        Player: {name}
-        Position: {p.get("position", "Unknown")}
-        Skills: {skills}
-        Monthly Stats: {stats}
+        PLAYER PROFILE:
+        - Name: {name}
+        - Position: {position} (Take this into account when analyzing their stats and giving insights)
 
-        Give ONE short performance insight (max 20 words).
-        Be specific, analytical, and realistic.
+        SKILL RATINGS (0-100%, based on per-game averages relative to max benchmarks):
+        {chr(10).join(f"  - {s['name']}: {s['level']}%" for s in skills)}
+
+        MONTHLY STATS (Sep → Feb, values are % of max benchmark per month, 0 = no games played):
+        - Attack Efficiency (kills/game vs max {MAX_KILLS} kills): {stats.get('attack_eff', [])}
+        - Serving Ace %    (aces/game  vs max {MAX_ACES}  aces):  {stats.get('serving_ace', [])}
+        - Blocking %       (blocks/game vs max {MAX_BLOCKS} blocks): {stats.get('blocking', [])}
+        - Overall Rating   (weighted: 40% attack + 30% ace + 30% block): {stats.get('rating', [])}
+
+        Months with value 0 mean the player had no recorded games that month — ignore those months.
+        The season runs September to February (6 months).
+
+        OVERALL RATING (position-weighted: {int(kw*100)}% attack + {int(aw*100)}% ace + {int(bw*100)}% block):
+        This weighting reflects the {position} role's priorities.
+
+        Based on this data, give ONE coaching insight (2-3 sentences max, under 50 words).
+        Focus on: their strongest skill, a specific trend you notice in the monthly data, and one actionable improvement.
+        Be specific and realistic — avoid generic advice.
         """
 
         print(f"Generated prompt for {name}: {prompt}")
