@@ -190,7 +190,7 @@
   .mrs-badge.minor::before { color: #d08000; }
 
   /* Middle column */
-  .mrs-metrics {}
+  
   .mrs-readiness-row {
     display: flex;
     align-items: center;
@@ -233,7 +233,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
   }
-  .mrs-stat-item {}
+ 
   .mrs-stat-label {
     font-size: 0.72rem;
     color: #8a9eae;
@@ -525,10 +525,6 @@
     <button class="mrs-tab" onclick="filterPlayers('ready', this)">Match Ready (85%+)</button>
     <button class="mrs-tab" onclick="filterPlayers('not_ready', this)">Not Ready</button>
   </div>
-  <button class="mrs-upload-btn">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-    Upload
-  </button>
 </div>
 
 <!-- PLAYER LIST -->
@@ -629,36 +625,6 @@
   </div>
 </div>
 
-<!-- FOOTER -->
-<div class="mrs-footer">
-  <div class="mrs-footer-inner">
-    <div class="mrs-footer-brand">
-      <div class="brand-name">⚡ V-Manager</div>
-      <p>The complete solution for volleyball club management.</p>
-    </div>
-    <div class="mrs-footer-col">
-      <h4>Product</h4>
-      <a href="#">Features</a>
-      <a href="#">Pricing</a>
-      <a href="#">Testimonials</a>
-      <a href="#">Updates</a>
-    </div>
-    <div class="mrs-footer-col">
-      <h4>Company</h4>
-      <a href="#">About</a>
-      <a href="#">Blog</a>
-      <a href="#">Careers</a>
-      <a href="#">Contact</a>
-    </div>
-    <div class="mrs-footer-col">
-      <h4>Support</h4>
-      <a href="#">Help Center</a>
-      <a href="#">Documentation</a>
-      <a href="#">API Reference</a>
-      <a href="#">Community</a>
-    </div>
-  </div>
-</div>
 
 <!-- ── MATCH MODAL ─────────────────────────────────── -->
 <div class="mrs-overlay" id="matchModalOverlay" onclick="closeMatchModal(event)">
@@ -703,7 +669,7 @@
   </div>
 </div>
 
-<!-- ── PLAYER MODAL ────────────────────────────────── -->
+
 <div class="mrs-overlay" id="playerModalOverlay" onclick="closePlayerModal(event)">
   <div class="mrs-modal">
     <button class="mrs-modal-close" onclick="closePlayerModal()">✕</button>
@@ -759,7 +725,7 @@
 </div>
 
 <script>
-  /* ── Filter tabs ── */
+  /* Filter tabs*/
   function filterPlayers(type, btn) {
     document.querySelectorAll('.mrs-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
@@ -771,7 +737,7 @@
     });
   }
 
-  /* ── Match modal ── */
+  /*Match modal*/
   function openMatchModal() {
     document.getElementById('matchModalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -782,7 +748,7 @@
     document.body.style.overflow = '';
   }
 
-  /* ── Player modal ── */
+  /*Player modal*/
   function openPlayerModal(name, pos, health, healthClass, kills, aces, blocks, games, lastMatch, attendance, readiness, avatar) {
     document.getElementById('pm-name').textContent       = name;
     document.getElementById('pm-pos').textContent        = pos;
@@ -816,7 +782,7 @@
     document.body.style.overflow = '';
   }
 
-  /* ── Close on Escape ── */
+  
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       closeMatchModal();

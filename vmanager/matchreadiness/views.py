@@ -46,38 +46,35 @@ def match_readiness_page(request):
     user_membership = TeamMembership.objects.select_related("team").get(user=request.user)
     user_team = user_membership.team
 
-    latest_record = (
-    TeamPerformanceRecord.objects
-    .filter(team=user_team)
-    .select_related("event")
-    .order_by("-event__scheduled_at")
-    .first()
-)
+#     latest_record = (
+#     TeamPerformanceRecord.objects
+#     .filter(team=user_team)
+#     .select_related("event")
+#     .order_by("-event__scheduled_at")
+#     .first()
+# )
 
-    latest_match_date = (
-        latest_record.event.scheduled_at
-        if latest_record else None
-    )
-    print(f"Latest match date for team {user_team.name}: {latest_match_date}")
+#     latest_match_date = (
+#         latest_record.event.scheduled_at
+#         if latest_record else None
+#     )
+    
     next_match = (
     ScheduledEvent.objects
     .filter(
         team=user_team,
         event_type=ScheduledEvent.TYPE_MATCH,
         status=ScheduledEvent.STATUS_SCHEDULED,
-        scheduled_at__gt=latest_match_date,
     )
     .order_by("scheduled_at")
-    .first()
-    )
+    .last()
+)
     next_match_date = (
         next_match.scheduled_at
         if next_match else None
     )
-    if next_match_date and latest_match_date:
-        days_between = (next_match_date - latest_match_date).days
-    else:
-        days_between = 7  # default to 7 if we can't calculate
+    
+  
     print(f"Next match for team {user_team.name}: {next_match}")
     memberships = TeamMembership.objects.select_related("user", "team").filter(
         team=user_team,
@@ -96,6 +93,19 @@ def match_readiness_page(request):
     players = []
 
     for member in memberships:
+        latest = (
+        TeamPerformanceRecord.objects
+        .filter(member=member)
+        .select_related("event")
+        .order_by("-event__scheduled_at")
+        .first()
+        )
+        latest_match_date = (
+            latest.event.scheduled_at
+            if latest and hasattr(latest.event, "scheduled_at") else None
+        )
+        if next_match_date and latest_match_date:
+            days_between = (next_match_date - latest_match_date).days
         try:
             photo = member.user.profile.profile_photo
             avatar_url = photo.url if photo else ""

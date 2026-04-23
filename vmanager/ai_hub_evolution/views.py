@@ -16,7 +16,7 @@ MAX_BLOCKS = 10
 MONTHS = [9, 10, 11, 12, 1, 2]  # Sep → Feb
 MONTH_INDEX = {m: i for i, m in enumerate(MONTHS)}
 POSITION_WEIGHTS = {
-    # position string (lowercase) : (kills_w, aces_w, blocks_w)
+   
     "outside hitter":  (0.50, 0.25, 0.25),
     "opposite hitter": (0.55, 0.25, 0.20),
     "middle blocker":  (0.35, 0.20, 0.45),
