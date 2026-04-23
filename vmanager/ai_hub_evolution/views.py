@@ -7,6 +7,9 @@ from django.db.models import Avg, Sum
 from team_management.models import TeamMembership
 from performance.models import TeamPerformanceRecord
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
+
+OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
 MAX_KILLS = 20
 MAX_ACES = 5
 MAX_BLOCKS = 10
@@ -54,6 +57,11 @@ def compute_skill_tags(kills, aces, blocks, games, rating):
 
     return tags
 
+def to_pct(values, games, max_val):
+    return [
+        round((values[i] / games[i]) / max_val * 100, 1) if games[i] > 0 else 0
+        for i in range(6)
+    ]
 
 # Determine season start year
 @login_required
@@ -141,6 +149,15 @@ def home(request):
 
        
         best_skill = max(skills, key=lambda x: x["level"]) if skills else None
+    # ── ADD HERE ──────────────────────────────────────
+        monthly_kill_pct  = to_pct(monthly["kills"],  monthly["games"], MAX_KILLS)
+        monthly_ace_pct   = to_pct(monthly["aces"],   monthly["games"], MAX_ACES)
+        monthly_block_pct = to_pct(monthly["blocks"], monthly["games"], MAX_BLOCKS)
+        monthly_rating    = [
+            round(monthly_kill_pct[i]*0.4 + monthly_ace_pct[i]*0.3 + monthly_block_pct[i]*0.3, 1)
+            for i in range(6)
+        ]
+
         players.append({
             "id": p["id"],
             "name": p["name"],
@@ -157,10 +174,11 @@ def home(request):
             ),
 
              "monthly_stats": {
-                "kills": safe_avg(monthly["kills"], monthly["games"]),
-                "aces": safe_avg(monthly["aces"], monthly["games"]),
-                "blocks": safe_avg(monthly["blocks"], monthly["games"]),
-            }
+            "attack_eff":  monthly_kill_pct,
+            "serving_ace": monthly_ace_pct,
+            "blocking":    monthly_block_pct,
+            "rating":      monthly_rating,
+        },
         })
     
 
@@ -219,7 +237,7 @@ import json
 import requests
 from django.views.decorators.csrf import csrf_exempt
 
-OPENROUTER_API_KEY = "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"
+
 
 
 @csrf_exempt
@@ -241,6 +259,7 @@ def generate_insights(request):
         You are a professional volleyball coach.
 
         Player: {name}
+        Position: {p.get("position", "Unknown")}
         Skills: {skills}
         Monthly Stats: {stats}
 

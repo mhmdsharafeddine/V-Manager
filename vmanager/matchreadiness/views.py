@@ -103,19 +103,18 @@ def match_readiness_page(request):
             avatar_url = ""
         records = TeamPerformanceRecord.objects.filter(member=member)
 
-        # ── STATS ─────────────────────────────────────
+        #STATS 
         kills  = sum(r.kills  for r in records)
         aces   = sum(r.aces   for r in records)
         blocks = sum(r.blocks for r in records)
 
-        # Only count games the player actually showed up to
         games_attended = records.filter(
             participation_status=TeamPerformanceRecord.PARTICIPATION_PRESENT
         ).values("event").distinct().count()
 
         attendance = games_attended / total_games
 
-        # ── INJURY / HEALTH ───────────────────────────
+       
         latest = records.order_by("-id").first()
 
         # injury_status is blank ("") when healthy
@@ -130,7 +129,7 @@ def match_readiness_page(request):
             "recently_injured": 0.2,
         }.get(raw_injury, 1.0)
 
-        # ── LAST MATCH DATE ───────────────────────────
+       
         # ScheduledEvent uses scheduled_at, not date
         last_match_date = (
             latest.event.scheduled_at.strftime("%d %b %Y")
@@ -138,14 +137,14 @@ def match_readiness_page(request):
             else "N/A"
         )
 
-        # ── PERFORMANCE % ────────────────────────────
+      
         games_safe = games_attended or 1
         kill_pct  = min(kills  / (games_safe * 5), 1.0) * 100
         ace_pct   = min(aces   / (games_safe * 3), 1.0) * 100
         block_pct = min(blocks / (games_safe * 4), 1.0) * 100
         performance_pct = round(kill_pct * 0.5 + ace_pct * 0.3 + block_pct * 0.2, 1)
 
-        # # ── READINESS SCORE (0–100) ───────────────────
+       
         # readiness_score = round(min(
         #     attendance      * 100 * 0.40 +
         #     performance_pct       * 0.40 +

@@ -342,7 +342,7 @@
   }
 
   .chart-section h2 {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     font-weight: 800;
     color: var(--navy);
     margin-bottom: 4px;
@@ -351,12 +351,59 @@
   .chart-section .chart-sub {
     font-size: 0.8rem;
     color: var(--muted);
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
 
   .chart-wrapper {
     position: relative;
-    height: 240px;
+    height: 280px;
+  }
+
+ 
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .summary-card {
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+
+  .summary-card.red    { background: #fff5f5; border: 1.5px solid #fecaca; }
+  .summary-card.orange { background: #fffbeb; border: 1.5px solid #fde68a; }
+  .summary-card.teal   { background: #f0fdf9; border: 1.5px solid #99f6e4; }
+  .summary-card.purple { background: var(--purple-lt); border: 1.5px solid #d8b4fe; }
+
+  .summary-card .s-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .summary-card.red    .s-label { color: var(--red);    }
+  .summary-card.orange .s-label { color: var(--orange); }
+  .summary-card.teal   .s-label { color: var(--teal-dark); }
+  .summary-card.purple .s-label { color: var(--purple); }
+
+  .summary-card .s-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .summary-card.red    .s-value { color: var(--red);    }
+  .summary-card.orange .s-value { color: var(--orange); }
+  .summary-card.teal   .s-value { color: var(--teal-dark); }
+  .summary-card.purple .s-value { color: var(--purple); }
+
+  .summary-card .s-growth {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--teal);
   }
 
   
@@ -368,6 +415,7 @@
   }
 </style>
 
+<!-- HERO -->
 <div class="hub-hero">
   <h1>AI-Driven Player Evolution Hub</h1>
   <p>Track player development across kills, aces, and blocks. AI-generated insights powered by season-long performance data.</p>
@@ -408,13 +456,13 @@
     {% endfor %}
   </div>
 
- 
+  <!-- DETAIL SECTION -->
   <div class="detail-section">
 
-   
+    <!-- LEFT: identity panel -->
     <div class="detail-left">
 
-    
+      <!-- Avatar (updated by JS) -->
       <div class="hub-avatar lg" id="d-avatar-wrap">
         <img id="d-avatar-img" src="" alt="" style="display:none;">
         <span id="d-avatar-fallback">👤</span>
@@ -447,7 +495,7 @@
 
     </div>
 
-  
+    <!-- RIGHT: skills + AI insight -->
     <div class="detail-right">
 
       <h2>Player DNA – Skill Tags</h2>
@@ -465,18 +513,42 @@
     </div>
   </div>
 
- 
+  <!-- CHART -->
   <div class="chart-section" style="margin-top:20px;">
     <h2>Monthly Development Chart</h2>
-    <p class="chart-sub">Average kills, aces, and blocks per game across the season</p>
+    <p class="chart-sub">Track skill progression over time - September 2025 to February 2026</p>
     <div class="chart-wrapper">
       <canvas id="devChart"></canvas>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-cards">
+      <div class="summary-card red">
+        <div class="s-label">Attack Efficiency</div>
+        <div class="s-value" id="sc-attack">—</div>
+        <div class="s-growth" id="sc-attack-g"></div>
+      </div>
+      <div class="summary-card orange">
+        <div class="s-label">Serving Ace</div>
+        <div class="s-value" id="sc-ace">—</div>
+        <div class="s-growth" id="sc-ace-g"></div>
+      </div>
+      <div class="summary-card teal">
+        <div class="s-label">Blocking</div>
+        <div class="s-value" id="sc-block">—</div>
+        <div class="s-growth" id="sc-block-g"></div>
+      </div>
+      <div class="summary-card purple">
+        <div class="s-label">Overall Rating</div>
+        <div class="s-value" id="sc-rating">—</div>
+        <div class="s-growth" id="sc-rating-g"></div>
+      </div>
     </div>
   </div>
 
 </div>
 
-
+<!-- ── JS ─────────────────────────────────────────── -->
 {{ players|json_script:"players-data" }}
 <script>
 const players = JSON.parse(document.getElementById("players-data").textContent);
@@ -484,38 +556,54 @@ const players = JSON.parse(document.getElementById("players-data").textContent);
 let chart;
 let playerInsights = {};
 
+/* ── Build chart ── */
 document.addEventListener("DOMContentLoaded", () => {
 
   const ctx = document.getElementById('devChart').getContext('2d');
+
+  const pointStyle = { pointStyle: 'circle', pointRadius: 5, pointBorderWidth: 2, pointBackgroundColor: '#fff' };
 
   chart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: ['Sep','Oct','Nov','Dec','Jan','Feb'],
       datasets: [
-        { label: 'Kills',  data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',  fill: true, tension: 0.35, pointRadius: 4 },
-        { label: 'Aces',   data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', fill: true, tension: 0.35, pointRadius: 4 },
-        { label: 'Blocks', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.35, pointRadius: 4 }
+        { label: 'Attack Efficiency', data: [], borderColor: '#ef4444', borderWidth: 2.5, pointBorderColor: '#ef4444', fill: false, tension: 0.35, ...pointStyle },
+        { label: 'Serving Ace %',     data: [], borderColor: '#f97316', borderWidth: 2.5, pointBorderColor: '#f97316', fill: false, tension: 0.35, ...pointStyle },
+        { label: 'Blocking',          data: [], borderColor: '#1ab5a3', borderWidth: 2.5, pointBorderColor: '#1ab5a3', fill: false, tension: 0.35, ...pointStyle },
+        { label: 'Overall Rating',    data: [], borderColor: '#7c5cbf', borderWidth: 2.5, pointBorderColor: '#7c5cbf', fill: false, tension: 0.35, ...pointStyle },
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: 'top' } },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, font: { size: 12, weight: '600' } }
+        }
+      },
       scales: {
-        y: { beginAtZero: true, grid: { color: '#e0eaf2' } },
-        x: { grid: { display: false } }
+        y: {
+          beginAtZero: true,
+          max: 100,
+          grid: { color: '#e0eaf2', borderDash: [4, 4] },
+          ticks: { stepSize: 25, callback: v => v }
+        },
+        x: { grid: { color: '#e0eaf2', borderDash: [4, 4] } }
       }
     }
   });
 
- 
+  
   if (players.length > 0) selectPlayer(0, players[0].id);
+
 
   loadInsights();
 });
 
-
+/* ── Select player ── */
 function selectPlayer(index, memberId) {
   const player = players[index];
   if (!player) return;
@@ -524,7 +612,7 @@ function selectPlayer(index, memberId) {
     c.classList.toggle('active', i === index)
   );
 
-
+  /* Avatar */
   const img      = document.getElementById('d-avatar-img');
   const fallback = document.getElementById('d-avatar-fallback');
 
@@ -538,7 +626,7 @@ function selectPlayer(index, memberId) {
     fallback.style.display = 'inline';
   }
 
-  
+  /* Identity */
   document.getElementById('p-name').textContent     = player.name || '—';
   document.getElementById('p-position').textContent = player.position || '—';
   document.getElementById('p-rating').textContent   = player.rating ?? '—';
@@ -548,7 +636,6 @@ function selectPlayer(index, memberId) {
   tagEl.textContent = `${player.tag_icon || ''} ${player.primary_tag || ''}`;
   tagEl.className   = `tag-badge ${player.tag_color || ''}`;
 
-  /* Skills */
   const skills = Array.isArray(player.skills) ? player.skills : [];
   document.getElementById('p-skill-count').textContent = skills.length;
 
@@ -576,17 +663,50 @@ function selectPlayer(index, memberId) {
     container.appendChild(div);
   });
 
- 
+
   const insight = playerInsights[player.id];
   document.getElementById('p-insight').textContent =
     insight ?? (skills.length ? `${player.name} is strongest in ${skills[0].name}.` : 'No insight available.');
 
   
-  const stats = player.monthly_stats || { kills:[0,0,0,0,0,0], aces:[0,0,0,0,0,0], blocks:[0,0,0,0,0,0] };
-  chart.data.datasets[0].data = stats.kills;
-  chart.data.datasets[1].data = stats.aces;
-  chart.data.datasets[2].data = stats.blocks;
+  const stats = player.monthly_stats || {
+    attack_eff:  [0,0,0,0,0,0],
+    serving_ace: [0,0,0,0,0,0],
+    blocking:    [0,0,0,0,0,0],
+    rating:      [0,0,0,0,0,0],
+  };
+
+  chart.data.datasets[0].data = stats.attack_eff;
+  chart.data.datasets[1].data = stats.serving_ace;
+  chart.data.datasets[2].data = stats.blocking;
+  chart.data.datasets[3].data = stats.rating;
   chart.update();
+
+
+  function lastVal(arr) {
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i] > 0) return arr[i];
+    return 0;
+  }
+  function growth(arr) {
+    const first = arr.find(v => v > 0) ?? 0;
+    const last  = lastVal(arr);
+    return Math.round(last - first);
+  }
+
+  const sets = [
+    { key: 'attack_eff',  valId: 'sc-attack', growId: 'sc-attack-g' },
+    { key: 'serving_ace', valId: 'sc-ace',    growId: 'sc-ace-g'    },
+    { key: 'blocking',    valId: 'sc-block',  growId: 'sc-block-g'  },
+    { key: 'rating',      valId: 'sc-rating', growId: 'sc-rating-g' },
+  ];
+
+  sets.forEach(({ key, valId, growId }) => {
+    const arr = stats[key] || [0,0,0,0,0,0];
+    const lv  = lastVal(arr);
+    const gr  = growth(arr);
+    document.getElementById(valId).textContent  = lv + '%';
+    document.getElementById(growId).textContent = (gr >= 0 ? '+' : '') + gr + '% Since Sep';
+  });
 }
 
 

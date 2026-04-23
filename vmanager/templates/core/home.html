@@ -316,13 +316,9 @@
                 sessionStorage.removeItem(transientKey);
             } else if (!isRemembered) {
                 if (!sessionStorage.getItem(transientKey)) {
-                    if (logoutForm) {
-                        logoutForm.submit();
-                        return;
-                    }
-                } else {
-                    sessionStorage.setItem(transientKey, "1");
+                    sessionStorage.setItem(transientKey, "1"); // mark session as active
                 }
+                // no logout here — JWT refresh handles token renewal
             } else {
                 sessionStorage.removeItem(transientKey);
             }
