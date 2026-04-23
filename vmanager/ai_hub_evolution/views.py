@@ -149,7 +149,7 @@ def home(request):
 
        
         best_skill = max(skills, key=lambda x: x["level"]) if skills else None
-    # ── ADD HERE ──────────────────────────────────────
+    
         monthly_kill_pct  = to_pct(monthly["kills"],  monthly["games"], MAX_KILLS)
         monthly_ace_pct   = to_pct(monthly["aces"],   monthly["games"], MAX_ACES)
         monthly_block_pct = to_pct(monthly["blocks"], monthly["games"], MAX_BLOCKS)
@@ -184,7 +184,11 @@ def home(request):
 
       
 
-    players = sorted(players, key=lambda x: x["rating"], reverse=True)[:3]
+    players = sorted(players, key=lambda x: x["rating"], reverse=True)
+    if len(players) >= 3:
+        players = [players[0], players[len(players) // 2], players[-1]]
+    elif len(players) == 2:
+        players = [players[0], players[-1]]
 
     return render(request, "ai_evo_hub/ai_display.html", {
         "players": players
