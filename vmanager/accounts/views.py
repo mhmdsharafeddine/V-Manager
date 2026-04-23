@@ -247,7 +247,7 @@ def login_view(request):
 
     return render(request, "accounts/login.html", {"form": form})
 
-
+from django.contrib.auth import login as django_login
 @require_http_methods(["GET", "POST"])
 def verify_2fa_view(request):
     redirect_response = _redirect_if_authenticated(request)
@@ -280,6 +280,8 @@ def verify_2fa_view(request):
             access_token, refresh_token = get_tokens_for_user(user)
             remember_me = bool(request.session.get(PENDING_AUTH_REMEMBER_ME))
             _clear_pending_2fa_session(request)
+
+            django_login(request, user)  # ← add this
             response = redirect(_post_login_redirect_name(user))
             set_auth_cookies(response, access_token, refresh_token, persistent=remember_me)
             messages.success(request, "Signed in successfully.")
@@ -477,8 +479,11 @@ def password_reset_complete_view(request):
     return render(request, "accounts/password_reset_complete.html")
 
 
+from django.contrib.auth import logout as django_logout
+
 @require_http_methods(["POST"])
 def logout_view(request):
+    django_logout(request)  # clears the session
     response = redirect("home")
     clear_auth_cookies(response)
     messages.success(request, "Logged out successfully.")
