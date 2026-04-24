@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notification Preferences | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'accounts/auth.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'accounts/settings.css' %}?v=7">
+    <style>
+        /* ── Notification Preferences page ── */
+
+        .notif-shell {
+            padding-top: 44px;
+            padding-bottom: 72px;
+        }
+
+        .notif-hero {
+            margin-bottom: 26px;
+        }
+
+        .notif-kicker {
+            margin: 0 0 8px;
+            color: #1c92b2;
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .notif-hero h1 {
+            margin: 0 0 10px;
+            color: #0f2a4c;
+            font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+            line-height: 1.04;
+        }
+
+        .notif-hero p {
+            margin: 0;
+            max-width: 44rem;
+            color: #48627b;
+            font-size: 1.05rem;
+            line-height: 1.5;
+        }
+
+        .notif-card {
+            border-radius: 30px;
+            border: 2px solid rgba(32, 164, 196, 0.24);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 18px 38px rgba(17, 96, 124, 0.12);
+            padding: 30px 32px 32px;
+            max-width: 720px;
+        }
+
+        /* ── Section ── */
+        .notif-section {
+            border-top: 1.5px solid rgba(32, 164, 196, 0.15);
+            padding-top: 24px;
+            margin-top: 24px;
+        }
+
+        .notif-section:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .notif-section-title {
+            margin: 0 0 4px;
+            color: #0f2a4c;
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .notif-section-desc {
+            margin: 0 0 18px;
+            color: #567189;
+            font-size: 0.9rem;
+        }
+
+        /* ── Toggle row ── */
+        .notif-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(32, 164, 196, 0.09);
+        }
+
+        .notif-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .notif-row-label {
+            flex: 1;
+        }
+
+        .notif-row-label strong {
+            display: block;
+            font-size: 0.95rem;
+            color: #10263f;
+        }
+
+        .notif-row-label span {
+            display: block;
+            font-size: 0.8rem;
+            color: #567189;
+            margin-top: 2px;
+        }
+
+        /* ── Toggle switch ── */
+        .notif-toggle {
+            position: relative;
+            width: 46px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .notif-toggle input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .notif-toggle-track {
+            position: absolute;
+            inset: 0;
+            background: #cbd5e1;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .notif-toggle-track::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+            transition: transform 0.2s;
+        }
+
+        .notif-toggle input:checked + .notif-toggle-track {
+            background: #20a6c7;
+        }
+
+        .notif-toggle input:checked + .notif-toggle-track::after {
+            transform: translateX(20px);
+        }
+
+        .notif-toggle input:focus-visible + .notif-toggle-track {
+            outline: 2px solid #20a6c7;
+            outline-offset: 2px;
+        }
+
+        /* ── Select row ── */
+        .notif-select-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(32, 164, 196, 0.09);
+        }
+
+        .notif-select-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .notif-select-row label {
+            flex: 1;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #10263f;
+        }
+
+        .notif-select {
+            min-width: 200px;
+            padding: 7px 12px;
+            border: 1.5px solid rgba(32, 164, 196, 0.3);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #10263f;
+            background: var(--layout-bg, #edfafe);
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+
+        .notif-select:focus {
+            border-color: #20a6c7;
+        }
+
+        /* ── Time row ── */
+        .notif-time-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .notif-time-field {
+            display: grid;
+            gap: 5px;
+        }
+
+        .notif-time-field label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #567189;
+        }
+
+        .notif-time-input {
+            padding: 8px 12px;
+            border: 1.5px solid rgba(32, 164, 196, 0.3);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #10263f;
+            background: var(--layout-bg, #edfafe);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .notif-time-input:focus {
+            border-color: #20a6c7;
+        }
+
+        /* Quiet hours section depends on toggle */
+        .notif-quiet-details {
+            margin-top: 4px;
+            padding: 14px 16px;
+            border: 1.5px solid rgba(32, 164, 196, 0.18);
+            border-radius: 14px;
+            background: rgba(32, 166, 199, 0.04);
+        }
+
+        .notif-quiet-details[hidden] {
+            display: none;
+        }
+
+        /* ── Actions bar ── */
+        .notif-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 28px;
+            padding-top: 22px;
+            border-top: 1.5px solid rgba(32, 164, 196, 0.15);
+        }
+
+        .notif-save-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 52px;
+            padding: 0 30px;
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #1697ba, #2db8db);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 800;
+            box-shadow: 0 14px 28px rgba(31, 151, 188, 0.24);
+            cursor: pointer;
+            transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+        }
+
+        .notif-save-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.03);
+            box-shadow: 0 18px 34px rgba(31, 151, 188, 0.28);
+        }
+
+        .notif-back-link {
+            font-size: 0.9rem;
+            color: #1c92b2;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .notif-back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Dimmed section when global toggle is off */
+        .notif-section.is-dimmed {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        @media (max-width: 560px) {
+            .notif-card { padding: 20px 18px 24px; border-radius: 20px; }
+            .notif-time-grid { grid-template-columns: 1fr; }
+            .notif-select { min-width: 140px; }
+        }
+    </style>
+{% endblock %}
+
+{% block body_class %}settings-page{% endblock %}
+
+{% block content %}
+<main class="notif-shell container">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="notif-hero">
+        <p class="notif-kicker">Account Settings</p>
+        <h1>Notification Preferences</h1>
+        <p>Control how and when V-Manager contacts you. Changes take effect immediately.</p>
+    </section>
+
+    <form method="post" class="notif-card" novalidate>
+        {% csrf_token %}
+
+        {# ── 1. Global Toggles ──────────────────────────────────────────────── #}
+        <section class="notif-section" aria-labelledby="section-global">
+            <h2 class="notif-section-title" id="section-global">Global Toggles</h2>
+            <p class="notif-section-desc">Master switches — turning these off overrides all individual settings below.</p>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>Email notifications</strong>
+                    <span>Receive updates via email</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle email notifications">
+                    {{ form.email_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>In-app / push notifications</strong>
+                    <span>See alerts inside V-Manager</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle push notifications">
+                    {{ form.push_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+        </section>
+
+        {# ── 2. Per-channel ─────────────────────────────────────────────────── #}
+        <section class="notif-section" id="section-channels" aria-labelledby="section-channels-title">
+            <h2 class="notif-section-title" id="section-channels-title">Channels</h2>
+            <p class="notif-section-desc">Choose which types of activity you want to be notified about.</p>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>Announcements</strong>
+                    <span>New team announcements posted</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle announcement notifications">
+                    {{ form.announcements_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>Private chat</strong>
+                    <span>New direct messages from team members</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle chat notifications">
+                    {{ form.chat_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>Scheduling &amp; events</strong>
+                    <span>New events, changes, or cancellations</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle scheduling notifications">
+                    {{ form.scheduling_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+        </section>
+
+        {# ── 3. Digest / Frequency ──────────────────────────────────────────── #}
+        <section class="notif-section" id="section-digest" aria-labelledby="section-digest-title">
+            <h2 class="notif-section-title" id="section-digest-title">Delivery Frequency</h2>
+            <p class="notif-section-desc">Choose between receiving notifications immediately or as a daily digest.</p>
+
+            <div class="notif-select-row">
+                <label for="{{ form.announcement_digest.id_for_label }}">Announcement delivery</label>
+                {{ form.announcement_digest }}
+            </div>
+
+            <div class="notif-select-row">
+                <label for="{{ form.chat_digest.id_for_label }}">Chat delivery</label>
+                {{ form.chat_digest }}
+            </div>
+        </section>
+
+        {# ── 4. Priority Filter ─────────────────────────────────────────────── #}
+        <section class="notif-section" id="section-priority" aria-labelledby="section-priority-title">
+            <h2 class="notif-section-title" id="section-priority-title">Priority Filter</h2>
+            <p class="notif-section-desc">Only get notified about announcements that meet or exceed a minimum priority level.</p>
+
+            <div class="notif-select-row">
+                <label for="{{ form.announcement_min_priority.id_for_label }}">Minimum announcement priority</label>
+                {{ form.announcement_min_priority }}
+            </div>
+        </section>
+
+        {# ── 5. Quiet Hours ─────────────────────────────────────────────────── #}
+        <section class="notif-section" aria-labelledby="section-quiet">
+            <h2 class="notif-section-title" id="section-quiet">Quiet Hours</h2>
+            <p class="notif-section-desc">During quiet hours, notifications are either held until the window ends or dropped entirely.</p>
+
+            <div class="notif-row">
+                <div class="notif-row-label">
+                    <strong>Enable quiet hours</strong>
+                    <span>Suppress notifications during a set time window</span>
+                </div>
+                <label class="notif-toggle" aria-label="Toggle quiet hours" id="quiet-toggle-wrap">
+                    {{ form.quiet_hours_enabled }}
+                    <span class="notif-toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="notif-quiet-details" id="quiet-details" {% if not prefs.quiet_hours_enabled %}hidden{% endif %}>
+                <div class="notif-time-grid">
+                    <div class="notif-time-field">
+                        <label for="{{ form.quiet_start.id_for_label }}">Start time</label>
+                        {{ form.quiet_start }}
+                    </div>
+                    <div class="notif-time-field">
+                        <label for="{{ form.quiet_end.id_for_label }}">End time</label>
+                        {{ form.quiet_end }}
+                    </div>
+                </div>
+
+                <div class="notif-row" style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(32,164,196,0.12);">
+                    <div class="notif-row-label">
+                        <strong>Drop notifications during quiet hours</strong>
+                        <span>When off, notifications are held &amp; delivered after the window ends</span>
+                    </div>
+                    <label class="notif-toggle" aria-label="Toggle drop vs hold during quiet hours">
+                        {{ form.quiet_skip_entirely }}
+                        <span class="notif-toggle-track"></span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        {# ── Actions ────────────────────────────────────────────────────────── #}
+        <div class="notif-actions">
+            <button type="submit" class="notif-save-btn">Save Preferences</button>
+            <a href="{% url 'accounts:settings' %}" class="notif-back-link">← Back to Account Settings</a>
+        </div>
+    </form>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    'use strict';
+
+    // ── Quiet hours expand/collapse ──────────────────────────────────────────
+    const quietToggle = document.getElementById('{{ form.quiet_hours_enabled.id_for_label }}');
+    const quietDetails = document.getElementById('quiet-details');
+
+    if (quietToggle && quietDetails) {
+        quietToggle.addEventListener('change', () => {
+            quietDetails.hidden = !quietToggle.checked;
+        });
+    }
+
+    // ── Dim channel/digest/priority sections when both globals are off ────────
+    const emailToggle = document.getElementById('{{ form.email_enabled.id_for_label }}');
+    const pushToggle  = document.getElementById('{{ form.push_enabled.id_for_label }}');
+    const depSections = [
+        document.getElementById('section-channels'),
+        document.getElementById('section-digest'),
+        document.getElementById('section-priority'),
+    ];
+
+    function syncGlobalDim() {
+        const anyOn = (emailToggle && emailToggle.checked) || (pushToggle && pushToggle.checked);
+        depSections.forEach(s => { if (s) s.classList.toggle('is-dimmed', !anyOn); });
+    }
+
+    if (emailToggle) emailToggle.addEventListener('change', syncGlobalDim);
+    if (pushToggle)  pushToggle.addEventListener('change', syncGlobalDim);
+    syncGlobalDim();
+
+    // ── Toast dismiss ─────────────────────────────────────────────────────────
+    const toasts = document.querySelectorAll('.toast-message');
+    if (toasts.length) {
+        window.setTimeout(() => {
+            toasts.forEach((t, i) => window.setTimeout(() => {
+                t.classList.add('toast-hide');
+                window.setTimeout(() => t.remove(), 320);
+            }, i * 120));
+        }, 2600);
+    }
+})();
+</script>
+{% endblock %}

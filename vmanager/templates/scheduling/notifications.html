@@ -45,11 +45,15 @@
                             <span>{{ item.when }}</span>
                         </div>
                         <div class="notification-page-actions">
+                            {% if item.kind == "private_message" %}
+                                <a class="btn btn-secondary" href="{{ item.open_action_url }}">{{ item.open_label }}</a>
+                            {% else %}
                             <form method="post" class="notification-action-form" action="{{ item.open_action_url }}">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ item.open_next_url }}">
                                 <button class="btn btn-secondary" type="submit">{{ item.open_label }}</button>
                             </form>
+                            {% endif %}
                             {% if item.mark_read_action_url and item.is_unread %}
                                 <form method="post" class="notification-action-form" action="{{ item.mark_read_action_url }}">
                                     {% csrf_token %}

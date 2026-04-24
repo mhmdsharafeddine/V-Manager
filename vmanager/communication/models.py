@@ -176,3 +176,110 @@ class UserPresenceConnection(models.Model):
 
 	def __str__(self):
 		return f"user={self.user_id} channel={self.channel_name}"
+
+
+class AnnouncementComment(models.Model):
+	announcement = models.ForeignKey(
+		Announcement,
+		on_delete=models.CASCADE,
+		related_name="comments",
+	)
+	author = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="announcement_comments",
+	)
+	parent = models.ForeignKey(
+		"self",
+		on_delete=models.CASCADE,
+		null=True,
+		blank=True,
+		related_name="replies",
+	)
+	body = models.TextField(max_length=2000)
+	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+	class Meta:
+		ordering = ["created_at", "id"]
+		indexes = [
+			models.Index(fields=["announcement", "parent", "created_at"]),
+		]
+
+	def __str__(self):
+		return f"comment={self.id} ann={self.announcement_id} author={self.author_id}"
+
+
+class PrivateMessage(models.Model):
+	"""A direct message from one user to another within the same team context."""
+
+	sender = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="sent_private_messages",
+	)
+	recipient = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="received_private_messages",
+	)
+	team = models.ForeignKey(
+		Team,
+		on_delete=models.CASCADE,
+		related_name="private_messages",
+	)
+	body = models.TextField(max_length=4000)
+	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+	read_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+	class Meta:
+		ordering = ["created_at", "id"]
+		indexes = [
+			# Fetch the full conversation between two users quickly
+			models.Index(fields=["team", "sender", "recipient", "created_at"]),
+			# Unread-count queries per recipient
+			models.Index(fields=["recipient", "read_at"]),
+		]
+
+	def __str__(self):
+		return f"pm={self.id} {self.sender_id}→{self.recipient_id}"
+
+
+class DigestEmailQueue(models.Model):
+	"""
+	Announcement emails that should not be delivered immediately.
+	Two reasons:
+	  - 'digest'     : user's announcement_digest preference is 'daily' (send at 22:00)
+	  - 'quiet_hold' : announcement arrived during quiet hours with skip_entirely=False
+	                   (hold until quiet hours end)
+	The management command `send_digest_emails` processes this table.
+	"""
+
+	REASON_DIGEST = "digest"
+	REASON_QUIET_HOLD = "quiet_hold"
+	REASON_CHOICES = [
+		(REASON_DIGEST, "Daily digest"),
+		(REASON_QUIET_HOLD, "Quiet hours hold"),
+	]
+
+	user = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="digest_email_queue",
+	)
+	announcement = models.ForeignKey(
+		Announcement,
+		on_delete=models.CASCADE,
+		related_name="digest_email_queue",
+	)
+	reason = models.CharField(max_length=20, choices=REASON_CHOICES, default=REASON_DIGEST)
+	# When the email becomes eligible to send (22:00 for digest, quiet-end for hold)
+	send_after = models.DateTimeField(db_index=True)
+	queued_at = models.DateTimeField(auto_now_add=True)
+	sent_at = models.DateTimeField(null=True, blank=True)
+
+	class Meta:
+		unique_together = [("user", "announcement")]
+		ordering = ["send_after"]
+
+	def __str__(self):
+		return f"DigestQueue user={self.user_id} ann={self.announcement_id} after={self.send_after}"

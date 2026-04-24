@@ -150,10 +150,16 @@
 
             document.addEventListener("submit", (event) => {
                 const form = event.target;
-                if (!(form instanceof HTMLFormElement) || event.defaultPrevented) {
+                if (!(form instanceof HTMLFormElement)) {
                     return;
                 }
-                scheduleLoader();
+                // Defer so all synchronous handlers (e.g. AJAX forms calling
+                // e.preventDefault()) have run before we decide to show the loader.
+                window.setTimeout(() => {
+                    if (!event.defaultPrevented) {
+                        scheduleLoader();
+                    }
+                }, 0);
             });
         })();
     </script>

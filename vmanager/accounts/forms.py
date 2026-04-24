@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import IntegrityError, transaction
 from django.forms import BaseFormSet, formset_factory
 
-from .models import AccountProfile, ParentChildLink
+from .models import AccountProfile, NotificationPreferences, ParentChildLink
 from team_management.models import Team, TeamMembership
 
 User = get_user_model()
@@ -532,3 +532,54 @@ class PasswordResetConfirmForm(forms.Form):
         if password1:
             validate_password(password1)
         return cleaned_data
+
+
+class NotificationPreferencesForm(forms.ModelForm):
+    class Meta:
+        model = NotificationPreferences
+        fields = [
+            # Global toggles
+            "email_enabled",
+            "push_enabled",
+            # Per-channel
+            "announcements_enabled",
+            "chat_enabled",
+            "scheduling_enabled",
+            # Digest
+            "announcement_digest",
+            "chat_digest",
+            # Priority
+            "announcement_min_priority",
+            # Quiet hours
+            "quiet_hours_enabled",
+            "quiet_start",
+            "quiet_end",
+            "quiet_skip_entirely",
+        ]
+        widgets = {
+            "quiet_start": forms.TimeInput(attrs={"type": "time", "class": "notif-time-input"}),
+            "quiet_end": forms.TimeInput(attrs={"type": "time", "class": "notif-time-input"}),
+            "announcement_digest": forms.Select(attrs={"class": "notif-select"}),
+            "chat_digest": forms.Select(attrs={"class": "notif-select"}),
+            "announcement_min_priority": forms.Select(attrs={"class": "notif-select"}),
+        }
+        labels = {
+            "email_enabled": "Enable email notifications",
+            "push_enabled": "Enable in-app / push notifications",
+            "announcements_enabled": "Announcement notifications",
+            "chat_enabled": "Private chat notifications",
+            "scheduling_enabled": "Scheduling / event notifications",
+            "announcement_digest": "Announcement delivery",
+            "chat_digest": "Chat delivery",
+            "announcement_min_priority": "Minimum priority to notify",
+            "quiet_hours_enabled": "Enable quiet hours",
+            "quiet_start": "Quiet hours start",
+            "quiet_end": "Quiet hours end",
+            "quiet_skip_entirely": "Drop notifications during quiet hours",
+        }
+        help_texts = {
+            "quiet_skip_entirely": (
+                "When on, notifications sent during quiet hours are discarded. "
+                "When off, they are held and delivered once quiet hours end."
+            ),
+        }

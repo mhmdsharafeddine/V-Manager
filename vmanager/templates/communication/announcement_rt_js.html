@@ -1,0 +1,414 @@
+{# ─────────────────────────────────────────────────────────────────────── #}
+{# Shared real-time JS: announcement comment system + comment polling      #}
+{# + new-announcement feed polling.  Include at end of {% block extra_js %} #}
+{# ─────────────────────────────────────────────────────────────────────── #}
+<script>
+(() => {
+    'use strict';
+
+    // ── CSRF ──────────────────────────────────────────────────────────────
+    function getCsrf() {
+        const match = document.cookie.split(';')
+            .map(c => c.trim())
+            .find(c => c.startsWith('csrftoken='));
+        return match ? decodeURIComponent(match.split('=')[1]) : '';
+    }
+
+    // ── HTML escaping ─────────────────────────────────────────────────────
+    function esc(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── Avatar ────────────────────────────────────────────────────────────
+    const ROLE_COLORS = {
+        manager: '#3b82f6', coach: '#8b5cf6', staff: '#f59e0b',
+        player: '#10b981', parent: '#ec4899',
+    };
+    function avatar(initials, role) {
+        const bg = ROLE_COLORS[role] || '#94a3b8';
+        return `<span class="ann-av" style="background:${esc(bg)}" aria-hidden="true">${esc(initials)}</span>`;
+    }
+
+    // ── Per-panel state ───────────────────────────────────────────────────
+    const panelState = {};
+    function state(annId) {
+        if (!panelState[annId]) {
+            panelState[annId] = { page: 0, loading: false, allLoaded: false, latestCommentId: 0 };
+        }
+        return panelState[annId];
+    }
+
+    // ── Render a comment (or reply) ───────────────────────────────────────
+    function renderComment(c, isReply) {
+        const roleBadge = c.author_role
+            ? `<span class="ann-comment-role">${esc(c.author_role)}</span>` : '';
+        const replyToggle = !isReply
+            ? `<button type="button" class="ann-reply-btn" data-comment-id="${c.id}">Reply</button>` : '';
+        const repliesHtml = !isReply && c.replies && c.replies.length
+            ? `<div class="ann-replies">${c.replies.map(r => renderComment(r, true)).join('')}</div>` : '';
+        const replySlot = !isReply
+            ? `<div id="reply-slot-${c.id}" class="ann-reply-form-wrap" hidden></div>` : '';
+        return `
+            <div class="ann-comment${isReply ? ' ann-comment--reply' : ''}" data-comment-id="${c.id}">
+                <div class="ann-comment-header">
+                    ${avatar(c.author_initials, c.author_role)}
+                    <div class="ann-comment-meta">
+                        <span class="ann-comment-author">${esc(c.author_name)}</span>
+                        ${roleBadge}
+                        <span class="ann-comment-time">${esc(c.created_label)}</span>
+                    </div>
+                </div>
+                <p class="ann-comment-body">${esc(c.body)}</p>
+                <div class="ann-comment-foot">${replyToggle}</div>
+                ${replySlot}
+                ${repliesHtml}
+            </div>`;
+    }
+
+    // ── Inline reply form ─────────────────────────────────────────────────
+    function replyFormHtml(annId, parentId) {
+        return `
+            <form class="ann-reply-form" data-ann-id="${annId}" data-parent-id="${parentId}" novalidate>
+                <textarea class="ann-comment-textarea" placeholder="Write a reply…" maxlength="2000" rows="2" required></textarea>
+                <div class="ann-comment-form-row">
+                    <button type="button" class="ann-cancel-reply">Cancel</button>
+                    <button type="submit" class="ann-comment-submit">Reply</button>
+                </div>
+            </form>`;
+    }
+
+    // ── Fetch helpers ─────────────────────────────────────────────────────
+    async function fetchComments(annId, page) {
+        const r = await fetch(`/communication/announcements/${annId}/comments/?page=${page}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    }
+
+    async function fetchNewComments(annId, afterId) {
+        const r = await fetch(`/communication/announcements/${annId}/comments/?after=${afterId}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    }
+
+    async function postComment(annId, body, parentId) {
+        const r = await fetch(`/communication/announcements/${annId}/comments/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ body, parent_id: parentId || null }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        return data;
+    }
+
+    // ── Open panel & load first page ──────────────────────────────────────
+    async function loadPanel(annId) {
+        const panel = document.getElementById(`comment-panel-${annId}`);
+        if (!panel) return;
+        const s = state(annId);
+        if (s.loading) return;
+        s.loading = true;
+        const listEl = panel.querySelector('.ann-comment-list');
+        listEl.innerHTML = '<p class="ann-comment-spinner">Loading comments\u2026</p>';
+        try {
+            const data = await fetchComments(annId, 1);
+            s.page = 1;
+            s.allLoaded = !data.has_next;
+            if (data.comments.length) {
+                s.latestCommentId = data.comments[data.comments.length - 1].id;
+            }
+            listEl.innerHTML = data.comments.length
+                ? data.comments.map(c => renderComment(c, false)).join('')
+                : '<p class="ann-comment-empty">No comments yet. Start the discussion!</p>';
+            const moreWrap = panel.querySelector('.ann-load-more-wrap');
+            if (moreWrap) moreWrap.hidden = !data.has_next;
+            updateBadge(annId, data.total);
+        } catch {
+            listEl.innerHTML = '<p class="ann-comment-error">Could not load comments. Please try again.</p>';
+        } finally {
+            s.loading = false;
+        }
+    }
+
+    async function loadMore(annId) {
+        const panel = document.getElementById(`comment-panel-${annId}`);
+        if (!panel) return;
+        const s = state(annId);
+        if (s.loading || s.allLoaded) return;
+        s.loading = true;
+        const btn = panel.querySelector('.ann-load-more');
+        const origText = btn ? btn.textContent : '';
+        if (btn) btn.textContent = 'Loading\u2026';
+        try {
+            const data = await fetchComments(annId, s.page + 1);
+            s.page++;
+            s.allLoaded = !data.has_next;
+            if (data.comments.length) {
+                const maxId = data.comments[data.comments.length - 1].id;
+                if (maxId > s.latestCommentId) s.latestCommentId = maxId;
+            }
+            const listEl = panel.querySelector('.ann-comment-list');
+            const empty = listEl.querySelector('.ann-comment-empty');
+            if (empty) empty.remove();
+            listEl.insertAdjacentHTML('beforeend', data.comments.map(c => renderComment(c, false)).join(''));
+            const moreWrap = panel.querySelector('.ann-load-more-wrap');
+            if (moreWrap) moreWrap.hidden = !data.has_next;
+        } catch { /* silent */ }
+        finally {
+            s.loading = false;
+            if (btn) btn.textContent = origText;
+        }
+    }
+
+    function updateBadge(annId, total) {
+        const toggle = document.querySelector(`.ann-comment-toggle[data-ann-id="${annId}"]`);
+        if (!toggle) return;
+        const el = toggle.querySelector('.ann-comment-count');
+        if (el) el.textContent = total;
+    }
+
+    // ── Poll open panels for new comments & replies (every 3 s) ──────────
+    async function pollOpenPanels() {
+        if (document.hidden) return;
+        for (const [annIdStr, s] of Object.entries(panelState)) {
+            if (s.page === 0) continue;                        // never opened
+            const panel = document.getElementById(`comment-panel-${annIdStr}`);
+            if (!panel || panel.hidden) continue;              // closed
+            try {
+                const data = await fetchNewComments(annIdStr, s.latestCommentId);
+                if (data.comments && data.comments.length) {
+                    const listEl = panel.querySelector('.ann-comment-list');
+                    const empty = listEl.querySelector('.ann-comment-empty');
+                    if (empty) empty.remove();
+                    for (const c of data.comments) {
+                        if (c.id > s.latestCommentId) s.latestCommentId = c.id;
+                        if (!c.parent_id) {
+                            // New top-level comment
+                            if (!panel.querySelector(`.ann-comment[data-comment-id="${c.id}"]`)) {
+                                listEl.insertAdjacentHTML('beforeend', renderComment(c, false));
+                            }
+                        } else {
+                            // New reply — attach to existing parent
+                            const parentEl = panel.querySelector(`.ann-comment[data-comment-id="${c.parent_id}"]`);
+                            if (parentEl && !panel.querySelector(`.ann-comment[data-comment-id="${c.id}"]`)) {
+                                let repliesEl = parentEl.querySelector('.ann-replies');
+                                if (!repliesEl) {
+                                    parentEl.insertAdjacentHTML('beforeend', '<div class="ann-replies"></div>');
+                                    repliesEl = parentEl.querySelector('.ann-replies');
+                                }
+                                repliesEl.insertAdjacentHTML('beforeend', renderComment(c, true));
+                            }
+                        }
+                    }
+                }
+                if (data.total !== undefined) updateBadge(annIdStr, data.total);
+            } catch { /* silent */ }
+        }
+    }
+    setInterval(pollOpenPanels, 3000);
+
+    // ── Event delegation ──────────────────────────────────────────────────
+    document.addEventListener('click', async (e) => {
+        // Toggle panel open/closed
+        const toggle = e.target.closest('.ann-comment-toggle');
+        if (toggle) {
+            const annId = toggle.dataset.annId;
+            const panel = document.getElementById(`comment-panel-${annId}`);
+            if (!panel) return;
+            const opening = panel.hidden;
+            panel.hidden = !opening;
+            toggle.setAttribute('aria-expanded', String(opening));
+            if (opening && state(annId).page === 0) await loadPanel(annId);
+            return;
+        }
+
+        // Load more
+        const loadMoreBtn = e.target.closest('.ann-load-more');
+        if (loadMoreBtn) {
+            await loadMore(loadMoreBtn.dataset.annId);
+            return;
+        }
+
+        // Reply button
+        const replyBtn = e.target.closest('.ann-reply-btn');
+        if (replyBtn) {
+            const commentId = replyBtn.dataset.commentId;
+            const panel = replyBtn.closest('.ann-comment-panel');
+            if (!panel) return;
+            const annId = panel.id.replace('comment-panel-', '');
+            const slot = document.getElementById(`reply-slot-${commentId}`);
+            if (!slot) return;
+            if (!slot.hidden) { slot.hidden = true; slot.innerHTML = ''; return; }
+            slot.innerHTML = replyFormHtml(annId, commentId);
+            slot.hidden = false;
+            slot.querySelector('textarea').focus();
+            return;
+        }
+
+        // Cancel reply
+        const cancelBtn = e.target.closest('.ann-cancel-reply');
+        if (cancelBtn) {
+            const slot = cancelBtn.closest('.ann-reply-form-wrap');
+            if (slot) { slot.hidden = true; slot.innerHTML = ''; }
+            return;
+        }
+    });
+
+    // ── Form submit ───────────────────────────────────────────────────────
+    document.addEventListener('submit', async (e) => {
+        const form = e.target;
+        const isTopLevel = form.matches('.ann-comment-form');
+        const isReply    = form.matches('.ann-reply-form');
+        if (!isTopLevel && !isReply) return;
+        e.preventDefault();
+
+        const annId    = form.dataset.annId;
+        const parentId = isReply ? form.dataset.parentId : null;
+        const textarea = form.querySelector('.ann-comment-textarea');
+        const body     = textarea.value.trim();
+        if (!body) { textarea.focus(); return; }
+
+        const submitBtn = form.querySelector('.ann-comment-submit');
+        submitBtn.disabled = true;
+        const origLabel = submitBtn.textContent;
+        submitBtn.textContent = 'Posting\u2026';
+        try {
+            const comment = await postComment(annId, body, parentId ? parseInt(parentId, 10) : null);
+            // Track so the next poll skips this comment (prevents double-render)
+            const s = state(annId);
+            if (comment.id > s.latestCommentId) s.latestCommentId = comment.id;
+            textarea.value = '';
+            if (isTopLevel) {
+                const panel = document.getElementById(`comment-panel-${annId}`);
+                const listEl = panel.querySelector('.ann-comment-list');
+                const empty = listEl.querySelector('.ann-comment-empty');
+                if (empty) empty.remove();
+                listEl.insertAdjacentHTML('beforeend', renderComment(comment, false));
+                listEl.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const badge = document.querySelector(`.ann-comment-toggle[data-ann-id="${annId}"] .ann-comment-count`);
+                if (badge) badge.textContent = (parseInt(badge.textContent, 10) || 0) + 1;
+            } else {
+                const commentEl = document.querySelector(`.ann-comment[data-comment-id="${parentId}"]`);
+                if (commentEl) {
+                    let repliesEl = commentEl.querySelector('.ann-replies');
+                    if (!repliesEl) {
+                        commentEl.insertAdjacentHTML('beforeend', '<div class="ann-replies"></div>');
+                        repliesEl = commentEl.querySelector('.ann-replies');
+                    }
+                    repliesEl.insertAdjacentHTML('beforeend', renderComment(comment, true));
+                }
+                const slot = form.closest('.ann-reply-form-wrap');
+                if (slot) { slot.hidden = true; slot.innerHTML = ''; }
+            }
+        } catch (err) {
+            alert(err.message || 'Failed to post. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = origLabel;
+        }
+    });
+
+    // ── Char counter ──────────────────────────────────────────────────────
+    document.addEventListener('input', (e) => {
+        if (!e.target.matches('.ann-comment-textarea')) return;
+        const form = e.target.closest('form');
+        if (!form) return;
+        const counter = form.querySelector('.ann-comment-chars');
+        if (!counter) return;
+        const left = 2000 - e.target.value.length;
+        counter.textContent = `${left} left`;
+        counter.classList.toggle('ann-comment-chars--warn', left < 100);
+    });
+
+    // ── Real-time: new announcement polling (every 10 s) ─────────────────
+    (() => {
+        let latestId = 0;
+        document.querySelectorAll('.announcement-item[data-ann-id]').forEach(el => {
+            const id = parseInt(el.dataset.annId, 10);
+            if (id > latestId) latestId = id;
+        });
+        const listEl = document.querySelector('.announcement-list');
+        if (!listEl) return;
+
+        function renderBadges(a) {
+            return (a.badges || []).map(b =>
+                `<span class="badge badge-${esc(b.variant)}">${b.variant === 'urgent' ? '<span class="badge-dot" aria-hidden="true"></span>' : ''}${esc(b.label)}</span>`
+            ).join('');
+        }
+
+        function renderNewAnnouncement(a) {
+            const nextParam = esc(window.location.pathname + window.location.search);
+            return `
+            <article class="announcement-item" data-ann-id="${a.id}" role="listitem">
+                <div class="announcement-top">
+                    <h3>${esc(a.title)}</h3>
+                    <div class="badges">${renderBadges(a)}</div>
+                </div>
+                <p class="meta">${esc(a.author_name)} \u00b7 ${esc(a.created_label)}</p>
+                <p class="announcement-copy">${esc(a.body)}</p>
+                <p class="views"><span class="views-value">0</span> people saw this</p>
+                <div class="announcement-actions">
+                    <form method="post" action="/communication/announcements/${a.id}/read/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrf()}">
+                        <input type="hidden" name="next" value="${nextParam}">
+                        <button type="submit" class="announcement-read-button">Set as read</button>
+                    </form>
+                    <button type="button" class="ann-comment-toggle" data-ann-id="${a.id}"
+                            aria-controls="comment-panel-${a.id}" aria-expanded="false">
+                        \ud83d\udcac <span class="ann-comment-count">0</span>
+                    </button>
+                </div>
+                <div class="ann-comment-panel" id="comment-panel-${a.id}" hidden>
+                    <div class="ann-comment-list"></div>
+                    <div class="ann-load-more-wrap" hidden>
+                        <button type="button" class="ann-load-more" data-ann-id="${a.id}">Load more</button>
+                    </div>
+                    <form class="ann-comment-form" data-ann-id="${a.id}" novalidate>
+                        <textarea class="ann-comment-textarea" placeholder="Write a comment\u2026" maxlength="2000" rows="2" required></textarea>
+                        <div class="ann-comment-form-row">
+                            <span class="ann-comment-chars">2000 left</span>
+                            <button type="submit" class="ann-comment-submit">Post</button>
+                        </div>
+                    </form>
+                </div>
+            </article>`;
+        }
+
+        async function pollAnnouncements() {
+            if (document.hidden) return;
+            try {
+                const r = await fetch(`/communication/announcements/poll/?after=${latestId}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (!data.announcements || !data.announcements.length) return;
+                data.announcements.forEach(a => {
+                    if (document.querySelector(`.announcement-item[data-ann-id="${a.id}"]`)) return;
+                    const emptyEl = listEl.querySelector('.announcement-empty');
+                    if (emptyEl) emptyEl.remove();
+                    listEl.insertAdjacentHTML('afterbegin', renderNewAnnouncement(a));
+                    if (a.id > latestId) latestId = a.id;
+                });
+            } catch { /* silent */ }
+        }
+
+        setInterval(() => { if (!document.hidden) pollAnnouncements(); }, 10000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) pollAnnouncements(); });
+    })();
+})();
+</script>

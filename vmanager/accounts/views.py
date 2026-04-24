@@ -18,13 +18,14 @@ from .forms import (
     ForgotPasswordForm,
     LinkedPlayerRegistrationFormSet,
     LoginForm,
+    NotificationPreferencesForm,
     PasswordResetCodeForm,
     PasswordResetConfirmForm,
     RegistrationForm,
     TwoFactorCodeForm,
 )
 from .jwt_utils import clear_auth_cookies, get_tokens_for_user, set_auth_cookies
-from .models import AccountProfile, EmailVerificationCode
+from .models import AccountProfile, EmailVerificationCode, NotificationPreferences
 from team_management.models import TeamMembership
 
 User = get_user_model()
@@ -536,3 +537,17 @@ def me_view(request):
             "child_name": getattr(profile, "child_name", None),
         }
     )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def notification_preferences_view(request):
+    prefs = NotificationPreferences.for_user(request.user)
+    form = NotificationPreferencesForm(request.POST or None, instance=prefs)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Notification preferences saved.")
+        return redirect("accounts:notification_preferences")
+
+    return render(request, "accounts/notification_preferences.html", {"form": form, "prefs": prefs})

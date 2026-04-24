@@ -87,12 +87,12 @@
                                 </label>
                                 <label>
                                     <input type="checkbox" name="pin_to_top" {% if compose_state.pin_to_top %}checked{% endif %} {% if not can_pin_announcements %}disabled{% endif %}>
-                                    <span>Pin to top of feed (manager only, max 2 days)</span>
+                                    <span>Pin to top of feed (manager only, max 3 pins, expires after 2 days)</span>
                                 </label>
                             </fieldset>
 
                             {% if not can_pin_announcements %}
-                                <p class="compose-note">Pinning is only available to managers and will be cleared after 2 days or when a new pin is posted.</p>
+                                <p class="compose-note">Pinning is only available to managers (up to 3 at a time, cleared after 2 days).</p>
                             {% endif %}
 
                             <div class="compose-actions">
@@ -116,20 +116,19 @@
                     <div class="announcement-list" role="list" data-announcement-list>
                         {% if announcements %}
                             {% for announcement in announcements %}
-                                <article class="announcement-item" role="listitem">
+                                <article class="announcement-item" data-ann-id="{{ announcement.id }}" role="listitem">
                                     <div class="announcement-top">
                                         <h3>{{ announcement.title|default:"Untitled Announcement" }}</h3>
                                         <div class="badges">
                                             {% if announcement.is_pinned %}
                                                 <span class="badge badge-pinned">Pinned</span>
                                             {% endif %}
-                                            {% if announcement.badges %}
-                                                {% for badge in announcement.badges %}
-                                                    <span class="badge badge-{{ badge.variant|default:'default' }}">{{ badge.label|default:"Tag" }}</span>
-                                                {% endfor %}
-                                            {% elif announcement.priority %}
-                                                <span class="badge badge-{{ announcement.priority|lower }}">{{ announcement.priority }}</span>
-                                            {% endif %}
+                                            {% for badge in announcement.badges %}
+                                                <span class="badge badge-{{ badge.variant|default:'default' }}">
+                                                    {% if badge.variant == 'urgent' %}<span class="badge-dot" aria-hidden="true"></span>{% endif %}
+                                                    {{ badge.label|default:"Tag" }}
+                                                </span>
+                                            {% endfor %}
                                         </div>
                                     </div>
                                     {% with author_name=announcement.author_name|default:"Unknown author" created_label=announcement.created_label|default:"" %}
@@ -149,6 +148,36 @@
                                                 <button type="submit" class="announcement-read-button">Set as read</button>
                                             </form>
                                         {% endif %}
+                                        {% if can_pin_announcements %}
+                                            <form method="post" action="{% url 'communication:toggle_pin' announcement.id %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% if announcement.is_pinned %}
+                                                    <button type="submit" class="announcement-pin-button announcement-pin-button--active">Unpin</button>
+                                                {% else %}
+                                                    <button type="submit" class="announcement-pin-button">Pin</button>
+                                                {% endif %}
+                                            </form>
+                                        {% endif %}
+                                        <button type="button" class="ann-comment-toggle"
+                                                data-ann-id="{{ announcement.id }}"
+                                                aria-controls="comment-panel-{{ announcement.id }}"
+                                                aria-expanded="false">
+                                            💬 <span class="ann-comment-count">{{ announcement.comment_count|default:0 }}</span>
+                                        </button>
+                                    </div>
+                                    <div class="ann-comment-panel" id="comment-panel-{{ announcement.id }}" hidden>
+                                        <div class="ann-comment-list"></div>
+                                        <div class="ann-load-more-wrap" hidden>
+                                            <button type="button" class="ann-load-more" data-ann-id="{{ announcement.id }}">Load more</button>
+                                        </div>
+                                        <form class="ann-comment-form" data-ann-id="{{ announcement.id }}" novalidate>
+                                            <textarea class="ann-comment-textarea" placeholder="Write a comment…" maxlength="2000" rows="2" required></textarea>
+                                            <div class="ann-comment-form-row">
+                                                <span class="ann-comment-chars">2000 left</span>
+                                                <button type="submit" class="ann-comment-submit">Post</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </article>
                             {% endfor %}
@@ -182,6 +211,7 @@
                     </div>
                 </article>
 
+                {% if can_post_announcements %}
                 <article class="hub-card quick-stats-card" aria-labelledby="quick-stats-title">
                     <div class="quick-stats-header">
                         <span class="quick-stats-icon" aria-hidden="true">
@@ -213,19 +243,35 @@
                                 <dd class="value-alert{% if unread_messages == '--' %} value-empty{% endif %}" data-stat-unread-messages>{{ unread_messages }}</dd>
                             {% endwith %}
                         </div>
+                        {% if quick_stats.show_response_time %}
                         <div>
-                            <dt>Avg Response Time</dt>
+                            <dt>Avg Read Response Time</dt>
                             {% with avg_response_time=quick_stats.avg_response_time|default_if_none:"--" %}
                                 <dd class="value-link{% if avg_response_time == '--' %} value-empty{% endif %}" data-stat-avg-response>{{ avg_response_time }}</dd>
                             {% endwith %}
                         </div>
+                        {% endif %}
                     </dl>
                 </article>
+                {% endif %}
 
                 <article class="hub-card all-announcements-card" aria-labelledby="all-announcements-title">
                     <h3 id="all-announcements-title">All Announcements</h3>
                     <p>You have access to {{ all_announcements_count }} announcements.</p>
                     <a class="hub-button hub-button-primary all-announcements-button" href="{% url 'communication:announcements' %}">View all announcements</a>
+                </article>
+
+                <article class="hub-card private-chat-card" aria-labelledby="private-chat-title">
+                    <div class="private-chat-header">
+                        <span class="private-chat-icon" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </span>
+                        <div>
+                            <h3 id="private-chat-title">Private Chats</h3>
+                            <p>Direct messages between team members</p>
+                        </div>
+                    </div>
+                    <a class="hub-button hub-button-primary private-chat-button" href="{% url 'communication:chat' %}">Open private chats</a>
                 </article>
             </aside>
         </section>
@@ -251,7 +297,6 @@
             if (!onlineNowNode) {
                 return;
             }
-
             const heartbeatIntervalMs = 15000;
             const reconnectDelayMs = 2000;
             const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -359,4 +404,5 @@
             connectPresenceSocket();
         })();
     </script>
+    {% include "communication/announcement_rt_js.html" %}
 {% endblock %}

@@ -1,0 +1,13 @@
+Hi {{ first_name }},
+
+Here is your V-Manager announcement digest ({{ count }} announcement{{ count|pluralize }}):
+
+{% for a in announcements %}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{ forloop.counter }}. {{ a.title }}
+   Priority : {{ a.priority }}
+   From     : {{ a.sender_name }}
+
+{{ a.body }}
+
+{% endfor %}
+Sign in to V-Manager to read and respond to these announcements.

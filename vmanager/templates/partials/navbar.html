@@ -6,7 +6,7 @@
             <span>V-Manager</span>
         </a>
 
-        <nav class="site-nav" aria-label="Primary navigation">
+        <nav class="site-nav" id="primary-nav" aria-label="Primary navigation">
             <a href="{% url 'home' %}#home">Home</a>
             {% if can_view_roster_nav %}
                 <a href="{% url 'team_management:roster' %}">Roster</a>
@@ -58,6 +58,38 @@
                 <a class="button button-outline" href="{% url 'accounts:login' %}">Sign In</a>
                 <a class="button button-accent" href="{% url 'accounts:register' %}">Get Started</a>
             {% endif %}
+            <button class="nav-burger" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primary-nav">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </div>
 </header>
+<script>
+(function () {
+    var burger = document.querySelector('.nav-burger');
+    var nav    = document.getElementById('primary-nav');
+    if (!burger || !nav) return;
+    burger.addEventListener('click', function () {
+        var open = nav.classList.toggle('is-open');
+        burger.setAttribute('aria-expanded', String(open));
+        burger.classList.toggle('is-active', open);
+    });
+    document.addEventListener('click', function (e) {
+        if (!nav.contains(e.target) && !burger.contains(e.target)) {
+            nav.classList.remove('is-open');
+            burger.setAttribute('aria-expanded', 'false');
+            burger.classList.remove('is-active');
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && nav.classList.contains('is-open')) {
+            nav.classList.remove('is-open');
+            burger.setAttribute('aria-expanded', 'false');
+            burger.classList.remove('is-active');
+            burger.focus();
+        }
+    });
+}());
+</script>

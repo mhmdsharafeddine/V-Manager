@@ -147,3 +147,76 @@ class EmailVerificationCode(models.Model):
             and self.expires_at >= timezone.now()
             and self.code_hash == self.hash_code(code)
         )
+
+
+class NotificationPreferences(models.Model):
+    """Per-user notification preferences. Created on first save with sane defaults."""
+
+    DIGEST_INSTANT = "instant"
+    DIGEST_DAILY = "daily"
+    DIGEST_CHOICES = [
+        (DIGEST_INSTANT, "Instant"),
+        (DIGEST_DAILY, "Daily digest"),
+    ]
+
+    PRIORITY_ALL = "all"
+    PRIORITY_IMPORTANT_UP = "important_up"
+    PRIORITY_URGENT_ONLY = "urgent_only"
+    PRIORITY_CHOICES = [
+        (PRIORITY_ALL, "All priorities"),
+        (PRIORITY_IMPORTANT_UP, "Important & Urgent only"),
+        (PRIORITY_URGENT_ONLY, "Urgent only"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preferences",
+    )
+
+    # ── Global toggles ────────────────────────────────────────────────────────
+    email_enabled = models.BooleanField(default=True)
+    push_enabled = models.BooleanField(default=True)
+
+    # ── Per-channel toggles ───────────────────────────────────────────────────
+    announcements_enabled = models.BooleanField(default=True)
+    chat_enabled = models.BooleanField(default=True)
+    scheduling_enabled = models.BooleanField(default=True)
+
+    # ── Digest / frequency ────────────────────────────────────────────────────
+    announcement_digest = models.CharField(
+        max_length=10, choices=DIGEST_CHOICES, default=DIGEST_INSTANT
+    )
+    chat_digest = models.CharField(
+        max_length=10, choices=DIGEST_CHOICES, default=DIGEST_INSTANT
+    )
+
+    # ── Priority filter ───────────────────────────────────────────────────────
+    announcement_min_priority = models.CharField(
+        max_length=15, choices=PRIORITY_CHOICES, default=PRIORITY_ALL
+    )
+
+    # ── Quiet hours ───────────────────────────────────────────────────────────
+    quiet_hours_enabled = models.BooleanField(default=False)
+    quiet_start = models.TimeField(default="22:00")
+    quiet_end = models.TimeField(default="08:00")
+    quiet_skip_entirely = models.BooleanField(
+        default=False,
+        help_text="If True, notifications during quiet hours are dropped. "
+                  "If False, they are held and sent after quiet hours end.",
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "notification preferences"
+        verbose_name_plural = "notification preferences"
+
+    def __str__(self):
+        return f"NotificationPreferences(user={self.user_id})"
+
+    @classmethod
+    def for_user(cls, user):
+        """Get-or-create the preferences record for a user."""
+        prefs, _ = cls.objects.get_or_create(user=user)
+        return prefs

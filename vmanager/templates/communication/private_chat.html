@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Private Chat | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'communication/private_chat.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="pchat-page">
+    <section class="container pchat-intro">
+        <h1>Private Chats</h1>
+        <p>Send direct messages to any member of your team — all conversations are private.</p>
+    </section>
+
+    <section class="container pchat-layout" aria-label="Private chat">
+
+        {# ── Sidebar: contacts ──────────────────────────────────────────── #}
+        <aside class="pchat-sidebar" aria-label="Team contacts">
+            <div class="pchat-sidebar-header">
+                <h2 class="pchat-sidebar-title">
+                    Team Members
+                    {% if total_unread > 0 %}
+                        <span style="display:inline-block;background:var(--layout-primary);color:#fff;font-size:0.7rem;font-weight:700;padding:0 6px;border-radius:10px;vertical-align:middle;margin-left:4px;" id="total-unread-badge">{{ total_unread }}</span>
+                    {% else %}
+                        <span id="total-unread-badge" hidden style="display:inline-block;background:var(--layout-primary);color:#fff;font-size:0.7rem;font-weight:700;padding:0 6px;border-radius:10px;vertical-align:middle;margin-left:4px;"></span>
+                    {% endif %}
+                </h2>
+                <div class="pchat-search-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" class="pchat-search" id="pchat-search" placeholder="Search members…" autocomplete="off">
+                </div>
+            </div>
+
+            {% if chat_users %}
+                <ul class="pchat-contact-list" id="contact-list" role="listbox" aria-label="Select a contact">
+                    {% for u in chat_users %}
+                    <li role="option"
+                        tabindex="0"
+                        data-user-id="{{ u.id }}"
+                        data-name="{{ u.name }}"
+                        data-initials="{{ u.initials }}"
+                        data-role="{{ u.role }}"
+                        data-role-label="{{ u.role_label }}"
+                        data-last-msg-ts="{{ u.last_msg_ts|default:0 }}"
+                        aria-selected="false">
+                        {% with bg=u.role %}
+                        <span class="pchat-av"
+                              style="background:{% if bg == 'manager' %}#3b82f6{% elif bg == 'coach' %}#8b5cf6{% elif bg == 'staff' %}#f59e0b{% elif bg == 'player' %}#10b981{% elif bg == 'parent' %}#ec4899{% else %}#94a3b8{% endif %};"
+                              aria-hidden="true">{{ u.initials }}</span>
+                        {% endwith %}
+                        <div class="pchat-contact-info">
+                            <span class="pchat-contact-name">{{ u.name }}</span>
+                            <span class="pchat-contact-role">{{ u.role_label }}</span>
+                            <span class="pchat-contact-preview">{{ u.last_message }}</span>
+                        </div>
+                        {% if u.unread > 0 %}
+                        <span class="pchat-unread-badge" id="badge-{{ u.id }}">{{ u.unread }}</span>
+                        {% else %}
+                        <span class="pchat-unread-badge" id="badge-{{ u.id }}" hidden>0</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="pchat-empty-contacts">No other team members yet.</p>
+            {% endif %}
+        </aside>
+
+        {# ── Main chat panel ────────────────────────────────────────────── #}
+        <div class="pchat-panel" id="pchat-panel" role="main" aria-label="Chat window">
+
+            {# Placeholder shown before a contact is selected #}
+            <div class="pchat-welcome" id="pchat-welcome" aria-live="polite">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <h3>Select a team member</h3>
+                <p>Choose someone from the list to start a private conversation.</p>
+            </div>
+
+            {# Chat header — hidden until a conversation is open #}
+            <div class="pchat-header" id="pchat-header" hidden>
+                <span class="pchat-av" id="pchat-peer-av" style="background:#94a3b8;" aria-hidden="true"></span>
+                <div class="pchat-header-info">
+                    <span class="pchat-header-name" id="pchat-peer-name"></span>
+                    <span class="pchat-header-role" id="pchat-peer-role"></span>
+                </div>
+            </div>
+
+            {# Messages scroll area — hidden until a conversation is open #}
+            <div class="pchat-messages" id="pchat-messages" hidden aria-live="polite" aria-label="Messages">
+                <p class="pchat-loading" id="pchat-loading">Loading…</p>
+            </div>
+
+            {# Input area — hidden until a conversation is open #}
+            <form class="pchat-input-area" id="pchat-input-area" hidden novalidate>
+                {% csrf_token %}
+                <textarea class="pchat-textarea" id="pchat-textarea" placeholder="Type a message…" rows="1" maxlength="4000" required aria-label="Message input"></textarea>
+                <button type="submit" class="pchat-send-btn" id="pchat-send-btn" aria-label="Send message" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    'use strict';
+
+    const ME_ID = {{ me_id|default:0 }};
+
+    // ── CSRF ──────────────────────────────────────────────────────────────────
+    function getCsrf() {
+        const match = document.cookie.split(';')
+            .map(c => c.trim()).find(c => c.startsWith('csrftoken='));
+        return match ? decodeURIComponent(match.split('=')[1]) : '';
+    }
+
+    // ── Role colour map ───────────────────────────────────────────────────────
+    const ROLE_BG = {
+        manager: '#3b82f6', coach: '#8b5cf6', staff: '#f59e0b',
+        player: '#10b981', parent: '#ec4899',
+    };
+    function roleBg(role) { return ROLE_BG[role] || '#94a3b8'; }
+
+    // ── HTML escape ───────────────────────────────────────────────────────────
+    function esc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let activePeerId   = null;
+    let activePeerMeta = {};   // {name, initials, role}
+    let loadingMessages = false;
+    let hasMore         = false;
+    let oldestId        = null;
+    let latestMsgId     = null;  // highest msg ID known in active conversation
+
+    // ── DOM handles ───────────────────────────────────────────────────────────
+    const welcome     = document.getElementById('pchat-welcome');
+    const header      = document.getElementById('pchat-header');
+    const peerAv      = document.getElementById('pchat-peer-av');
+    const peerName    = document.getElementById('pchat-peer-name');
+    const peerRole    = document.getElementById('pchat-peer-role');
+    const msgArea     = document.getElementById('pchat-messages');
+    const loadingEl   = document.getElementById('pchat-loading');
+    const inputArea   = document.getElementById('pchat-input-area');
+    const textarea    = document.getElementById('pchat-textarea');
+    const sendBtn     = document.getElementById('pchat-send-btn');
+    const contactList = document.getElementById('contact-list');
+    const searchInput = document.getElementById('pchat-search');
+    const totalBadge  = document.getElementById('total-unread-badge');
+
+    // ── Open conversation ─────────────────────────────────────────────────────
+    async function openChat(userId, meta) {
+        if (activePeerId === userId) return;
+        activePeerId   = userId;
+        activePeerMeta = meta;
+        hasMore     = false;
+        oldestId    = null;
+        latestMsgId = null;
+
+        // Mark contact active
+        contactList.querySelectorAll('li').forEach(li => {
+            const active = parseInt(li.dataset.userId, 10) === userId;
+            li.classList.toggle('active', active);
+            li.setAttribute('aria-selected', String(active));
+        });
+
+        // Show panel regions
+        welcome.hidden        = true;
+        welcome.style.display = 'none';
+        header.hidden    = false;
+        msgArea.hidden   = false;
+        inputArea.hidden = false;
+
+        // Update header
+        peerAv.textContent  = esc(meta.initials);
+        peerAv.style.background = roleBg(meta.role);
+        peerName.textContent = meta.name;
+        peerRole.textContent = meta.roleLabel;
+
+        // Load messages
+        msgArea.innerHTML = '<p class="pchat-loading">Loading…</p>';
+        loadingMessages = false;
+        await fetchMessages(userId, null);
+        msgArea.scrollTop = msgArea.scrollHeight;
+    }
+
+    // ── Fetch messages ────────────────────────────────────────────────────────
+    async function fetchMessages(peerId, beforeId) {
+        if (loadingMessages) return;
+        loadingMessages = true;
+
+        let url = `/communication/chat/${peerId}/messages/`;
+        if (beforeId) url += `?before=${beforeId}`;
+
+        try {
+            const r = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+
+            hasMore  = data.has_more;
+            oldestId = data.oldest_id;
+
+            // Clear "Loading…" on initial load
+            const prev = msgArea.querySelector('.pchat-loading, .pchat-empty');
+            if (prev) prev.remove();
+
+            // Remove old load-more button if present
+            const prevLm = msgArea.querySelector('.pchat-load-more');
+            if (prevLm) prevLm.remove();
+
+            if (!data.messages.length && !beforeId) {
+                msgArea.insertAdjacentHTML('afterbegin', '<p class="pchat-empty">No messages yet. Say hello! 👋</p>');
+            } else {
+                const html = data.messages.map(m => renderMessage(m)).join('');
+                if (beforeId) {
+                    // prepend older messages
+                    const anchor = msgArea.firstElementChild;
+                    const scrollHeightBefore = msgArea.scrollHeight;
+                    anchor
+                        ? anchor.insertAdjacentHTML('beforebegin', html)
+                        : msgArea.insertAdjacentHTML('afterbegin', html);
+                    // preserve scroll position
+                    msgArea.scrollTop += msgArea.scrollHeight - scrollHeightBefore;
+                } else {
+                    msgArea.insertAdjacentHTML('beforeend', html);
+                }
+            }
+
+            // Add / remove load-more
+            if (hasMore) {
+                const lmBtn = document.createElement('button');
+                lmBtn.className = 'pchat-load-more';
+                lmBtn.type = 'button';
+                lmBtn.textContent = 'Load earlier messages';
+                msgArea.insertAdjacentElement('afterbegin', lmBtn);
+            }
+
+            // Clear unread badge for this peer
+            clearBadge(peerId);
+            // Track newest message ID for real-time polling (initial/forward loads only)
+            if (!beforeId && data.messages.length > 0) {
+                const newest = data.messages[data.messages.length - 1].id;
+                if (latestMsgId === null || newest > latestMsgId) latestMsgId = newest;
+            }
+        } catch (e) {
+            msgArea.innerHTML = '<p class="pchat-empty">Failed to load messages.</p>';
+        } finally {
+            loadingMessages = false;
+        }
+    }
+
+    // ── Render a message bubble ───────────────────────────────────────────────
+    function renderMessage(m) {
+        const cls   = m.is_own ? 'pchat-msg--own' : 'pchat-msg--other';
+        const avBg  = roleBg(m.author_role);
+        const avHtml = `<span class="pchat-msg-av" style="background:${esc(avBg)}" aria-hidden="true">${esc(m.author_initials)}</span>`;
+        return `
+            <div class="pchat-msg ${esc(cls)}" data-msg-id="${m.id}">
+                ${m.is_own ? '' : avHtml}
+                <div class="pchat-bubble-wrap">
+                    <span class="pchat-bubble">${esc(m.body)}</span>
+                    <span class="pchat-msg-time">${esc(m.created_label)}</span>
+                </div>
+                ${m.is_own ? avHtml : ''}
+            </div>`;
+    }
+
+    // ── Send a message ────────────────────────────────────────────────────────
+    async function sendMessage(body) {
+        if (!activePeerId) return;
+        sendBtn.disabled = true;
+        try {
+            const r = await fetch(`/communication/chat/${activePeerId}/send/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ body }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+            // Remove "No messages yet" placeholder
+            const empty = msgArea.querySelector('.pchat-empty');
+            if (empty) empty.remove();
+
+            msgArea.insertAdjacentHTML('beforeend', renderMessage(data));
+            if (data.id > (latestMsgId || 0)) latestMsgId = data.id;
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            msgArea.scrollTop = msgArea.scrollHeight;
+            // Update contact preview + re-sort sidebar
+            const peerLi = contactList && contactList.querySelector(`li[data-user-id="${activePeerId}"]`);
+            if (peerLi) {
+                peerLi.dataset.lastMsgTs = String(Date.now());
+                const prevEl = peerLi.querySelector('.pchat-contact-preview');
+                if (prevEl) prevEl.textContent = body;
+                sortContacts();
+            }
+        } catch (err) {
+            alert(err.message || 'Failed to send message.');
+        } finally {
+            sendBtn.disabled = !textarea.value.trim();
+        }
+    }
+
+    // ── Badge helpers ─────────────────────────────────────────────────────────
+    function clearBadge(userId) {
+        const badge = document.getElementById(`badge-${userId}`);
+        if (badge) { badge.textContent = '0'; badge.hidden = true; }
+        refreshTotalBadge();
+    }
+
+    function refreshTotalBadge() {
+        let total = 0;
+        document.querySelectorAll('.pchat-unread-badge').forEach(b => {
+            total += parseInt(b.textContent, 10) || 0;
+        });
+        if (total > 0) {
+            totalBadge.textContent = total;
+            totalBadge.hidden = false;
+        } else {
+            totalBadge.hidden = true;
+        }
+    }
+
+    // ── Periodic unread refresh (every 15 s when page is visible) ────────────
+    async function refreshUnread() {
+        try {
+            const r = await fetch('/communication/chat/unread/', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!r.ok) return;
+            const data = await r.json();
+            document.querySelectorAll('#contact-list li').forEach(li => {
+                const uid  = li.dataset.userId;
+                const cnt  = data.counts[uid] || 0;
+                const badge = document.getElementById(`badge-${uid}`);
+                if (!badge) return;
+                // Don't re-add badge for currently open conversation
+                if (parseInt(uid, 10) === activePeerId) { badge.hidden = true; return; }
+                badge.textContent = cnt;
+                badge.hidden = cnt === 0;
+            });
+            refreshTotalBadge();
+            sortContacts();
+        } catch { /* silent */ }
+    }
+    setInterval(() => { if (!document.hidden) refreshUnread(); }, 15000);
+
+    // ── Sort contacts: most recent message first, then alphabetical ────────────
+    function sortContacts() {
+        if (!contactList) return;
+        const items = Array.from(contactList.querySelectorAll('li[data-user-id]'));
+        items.sort((a, b) => {
+            const ta = parseInt(a.dataset.lastMsgTs || '0', 10);
+            const tb = parseInt(b.dataset.lastMsgTs || '0', 10);
+            if (tb !== ta) return tb - ta;
+            return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+        });
+        items.forEach(li => contactList.appendChild(li));
+    }
+
+    // ── Real-time new-message polling (every 2.5 s while tab is visible) ─────
+    async function pollMessages() {
+        if (!activePeerId || latestMsgId === null || document.hidden) return;
+        try {
+            const r = await fetch(`/communication/chat/${activePeerId}/messages/?after=${latestMsgId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!r.ok) return;
+            const data = await r.json();
+            if (!data.messages.length) return;
+
+            const wasNearBottom = msgArea.scrollHeight - msgArea.scrollTop - msgArea.clientHeight < 120;
+            const empty = msgArea.querySelector('.pchat-empty');
+            if (empty) empty.remove();
+
+            for (const m of data.messages) {
+                if (document.querySelector(`.pchat-msg[data-msg-id="${m.id}"]`)) continue;
+                msgArea.insertAdjacentHTML('beforeend', renderMessage(m));
+                if (m.id > latestMsgId) latestMsgId = m.id;
+            }
+            if (wasNearBottom) msgArea.scrollTop = msgArea.scrollHeight;
+            clearBadge(activePeerId);
+            // Update contact preview + re-sort sidebar
+            const peerLiPoll = contactList && contactList.querySelector(`li[data-user-id="${activePeerId}"]`);
+            if (peerLiPoll) {
+                const lastM = data.messages[data.messages.length - 1];
+                peerLiPoll.dataset.lastMsgTs = String(Date.now());
+                const prevElPoll = peerLiPoll.querySelector('.pchat-contact-preview');
+                if (prevElPoll) prevElPoll.textContent = lastM.body;
+                sortContacts();
+            }
+        } catch { /* silent */ }
+    }
+    setInterval(() => { if (!document.hidden) pollMessages(); }, 2500);
+
+    // ── Contacts search / filter ──────────────────────────────────────────────
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        contactList.querySelectorAll('li').forEach(li => {
+            const name = (li.dataset.name || '').toLowerCase();
+            li.style.display = (!q || name.includes(q)) ? '' : 'none';
+        });
+    });
+
+    // ── Click on contact ──────────────────────────────────────────────────────
+    if (contactList) {
+        contactList.addEventListener('click', (e) => {
+            const li = e.target.closest('li[data-user-id]');
+            if (!li) return;
+            openChat(parseInt(li.dataset.userId, 10), {
+                name:      li.dataset.name,
+                initials:  li.dataset.initials,
+                role:      li.dataset.role,
+                roleLabel: li.dataset.roleLabel,
+            });
+        });
+        contactList.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                const li = e.target.closest('li[data-user-id]');
+                if (li) { e.preventDefault(); li.click(); }
+            }
+        });
+    }
+
+    // ── Load more (older messages) ────────────────────────────────────────────
+    msgArea.addEventListener('click', (e) => {
+        if (e.target.matches('.pchat-load-more') && activePeerId && oldestId) {
+            fetchMessages(activePeerId, oldestId);
+        }
+    });
+
+    // ── Auto-grow textarea ────────────────────────────────────────────────────
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+        sendBtn.disabled = !textarea.value.trim();
+    });
+
+    // ── Send on Enter (Shift+Enter = new line) ────────────────────────────────
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const body = textarea.value.trim();
+            if (body) sendMessage(body);
+        }
+    });
+
+    // ── Form submit ───────────────────────────────────────────────────────────
+    inputArea.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const body = textarea.value.trim();
+        if (body) sendMessage(body);
+    });
+
+    // ── Toast dismiss (re-used pattern) ──────────────────────────────────────
+    (() => {
+        const toasts = document.querySelectorAll('.toast-message');
+        if (!toasts.length) return;
+        window.setTimeout(() => {
+            toasts.forEach((t, i) => window.setTimeout(() => {
+                t.classList.add('toast-hide');
+                window.setTimeout(() => t.remove(), 320);
+            }, i * 120));
+        }, 2600);
+    })();
+})();
+</script>
+{% endblock %}

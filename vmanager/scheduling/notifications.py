@@ -1,10 +1,34 @@
 from django.utils import timezone
 from django.urls import reverse
 
-from accounts.models import AccountProfile
-from communication.models import Announcement, AnnouncementRecipient
+from accounts.models import AccountProfile, NotificationPreferences
+from communication.models import Announcement, AnnouncementRecipient, PrivateMessage
 
 from .models import EventNotificationRead, ScheduledEvent
+
+
+def _in_quiet_hours(prefs, now):
+    """Return True if *now* falls inside the user's configured quiet window."""
+    if not prefs.quiet_hours_enabled:
+        return False
+    local_time = timezone.localtime(now).time()
+    qs, qe = prefs.quiet_start, prefs.quiet_end
+    if qs <= qe:
+        # same-day window (e.g. 08:00 – 18:00)
+        return qs <= local_time < qe
+    # overnight window (e.g. 22:00 – 08:00)
+    return local_time >= qs or local_time < qe
+
+
+def _announcement_meets_min_priority(priority, min_priority):
+    """Return True if *priority* satisfies the user's minimum filter."""
+    if min_priority == NotificationPreferences.PRIORITY_ALL:
+        return True
+    if min_priority == NotificationPreferences.PRIORITY_URGENT_ONLY:
+        return priority == Announcement.PRIORITY_URGENT
+    if min_priority == NotificationPreferences.PRIORITY_IMPORTANT_UP:
+        return priority in (Announcement.PRIORITY_IMPORTANT, Announcement.PRIORITY_URGENT)
+    return True
 
 
 def _parse_targets(value):
@@ -142,27 +166,42 @@ def get_user_notifications(user, *, limit=None):
     if not getattr(user, "is_authenticated", False):
         return []
 
-    now = timezone.now()
-    events = (
-        ScheduledEvent.objects.filter(status=ScheduledEvent.STATUS_SCHEDULED, scheduled_at__gte=now)
-        .order_by("scheduled_at")
-    )
-    visible_events = [event for event in events if _is_visible(event, user)]
+    prefs = NotificationPreferences.for_user(user)
 
-    event_ids = [event.id for event in visible_events]
-    state_map = {
-        row["event_id"]: row["is_deleted"]
-        for row in EventNotificationRead.objects.filter(user=user, event_id__in=event_ids).values("event_id", "is_deleted")
-    }
-    filtered_events = [event for event in visible_events if not state_map.get(event.id, False)]
-    read_event_ids = set(
-        EventNotificationRead.objects.filter(user=user, event_id__in=[event.id for event in filtered_events]).values_list(
-            "event_id", flat=True
+    # ── Scheduled-event notifications ──────────────────────────────────────
+    # Events are computed (not stored per-user), so scheduling_enabled and
+    # push_enabled act as display-time filters here.
+    event_notifications = []
+    if prefs.push_enabled and prefs.scheduling_enabled:
+        now = timezone.now()
+        events = (
+            ScheduledEvent.objects.filter(
+                status=ScheduledEvent.STATUS_SCHEDULED, scheduled_at__gte=now
+            ).order_by("scheduled_at")
         )
-    )
+        visible_events = [e for e in events if _is_visible(e, user)]
 
-    event_notifications = [_build_notification_item(event, read_event_ids, now) for event in filtered_events]
+        event_ids = [e.id for e in visible_events]
+        state_map = {
+            row["event_id"]: row["is_deleted"]
+            for row in EventNotificationRead.objects.filter(
+                user=user, event_id__in=event_ids
+            ).values("event_id", "is_deleted")
+        }
+        filtered_events = [e for e in visible_events if not state_map.get(e.id, False)]
+        read_event_ids = set(
+            EventNotificationRead.objects.filter(
+                user=user, event_id__in=[e.id for e in filtered_events]
+            ).values_list("event_id", flat=True)
+        )
+        event_notifications = [
+            _build_notification_item(e, read_event_ids, now) for e in filtered_events
+        ]
 
+    # ── Announcement notifications ──────────────────────────────────────────
+    # Announcements are stored as AnnouncementRecipient records.  Preference
+    # filtering already happened at delivery time (creation of the record), so
+    # we show ALL records here — no preference filtering.
     announcement_rows = (
         AnnouncementRecipient.objects.filter(
             user=user,
@@ -172,9 +211,51 @@ def get_user_notifications(user, *, limit=None):
         .select_related("announcement")
         .order_by("-announcement__created_at", "-announcement_id")
     )
-    announcement_notifications = [_build_announcement_notification_item(row) for row in announcement_rows]
+    announcement_notifications = [
+        _build_announcement_notification_item(row) for row in announcement_rows
+    ]
 
-    notifications = announcement_notifications + event_notifications
+    # ── Private-message notifications ─────────────────────────────────────────
+    # One notification item per sender who has sent unread messages to *user*.
+    unread_pms = (
+        PrivateMessage.objects
+        .filter(recipient=user, read_at__isnull=True)
+        .select_related("sender__profile")
+        .order_by("sender_id", "-created_at")
+    )
+    pm_by_sender = {}
+    for pm in unread_pms:
+        sid = pm.sender_id
+        if sid not in pm_by_sender:
+            pm_by_sender[sid] = {"sender": pm.sender, "count": 0, "latest": pm}
+        pm_by_sender[sid]["count"] += 1
+
+    pm_notifications = []
+    for data in pm_by_sender.values():
+        sender = data["sender"]
+        count = data["count"]
+        sender_name = sender.get_full_name() or sender.email
+        created_local = timezone.localtime(data["latest"].created_at)
+        pm_notifications.append({
+            "kind": "private_message",
+            "event_id": None,
+            "announcement_id": None,
+            "title": "New Private Message",
+            "event_title": f"{sender_name} sent you {count} unread message{'s' if count > 1 else ''}",
+            "when": created_local.strftime("%a, %d %b at %I:%M %p"),
+            "class_name": "notification-chat",
+            "is_unread": True,
+            "source_url": reverse("communication:chat"),
+            "open_action_url": reverse("communication:chat"),
+            "open_next_url": reverse("communication:chat"),
+            "open_label": "Open Chat",
+            "mark_read_action_url": None,
+            "mark_read_next_url": None,
+            "delete_action_url": None,
+            "delete_next_url": None,
+        })
+
+    notifications = pm_notifications + announcement_notifications + event_notifications
     if limit is not None:
         notifications = notifications[:limit]
 
@@ -182,8 +263,11 @@ def get_user_notifications(user, *, limit=None):
 
 
 def build_user_notifications_context(user, *, limit=8):
-    notifications = get_user_notifications(user, limit=limit)
-    unread_count = sum(1 for item in notifications if item["is_unread"])
+    # Get ALL notifications first so the badge count is accurate,
+    # then slice to `limit` for the dropdown panel.
+    all_notifications = get_user_notifications(user)
+    unread_count = sum(1 for item in all_notifications if item["is_unread"])
+    notifications = all_notifications[:limit] if limit is not None else all_notifications
     return {"notifications": notifications, "notification_unread_count": unread_count}
 
 

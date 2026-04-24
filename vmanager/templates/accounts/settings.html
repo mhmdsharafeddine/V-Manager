@@ -31,8 +31,7 @@
     <section class="settings-layout">
         <section class="settings-overview">
             <section class="settings-card settings-profile-card">
-                <div class="settings-profile-head">
-                    {% if profile and profile.profile_photo %}
+                <div class="settings-profile-head">                    {% if profile and profile.profile_photo %}
                         <img src="{{ profile.profile_photo.url }}" alt="{{ request.user.get_full_name|default:request.user.email }}" class="settings-avatar-image">
                     {% else %}
                         <div class="settings-avatar-fallback">{{ profile.initials|default:request.user.email|slice:":2"|upper }}</div>
@@ -94,6 +93,16 @@
                     </div>
                 </section>
             {% endif %}
+        </section>
+
+        {# ── Notification Preferences shortcut card ─────────────────────── #}
+        <section class="settings-card settings-linked-card" style="display:grid;gap:10px;">
+            <h2 style="margin:0;font-size:1.1rem;">🔔 Notification Preferences</h2>
+            <p style="margin:0;font-size:0.875rem;color:#567189;">Control quiet hours, global toggles, delivery frequency, and priority filters.</p>
+            <a href="{% url 'accounts:notification_preferences' %}"
+               style="display:inline-block;margin-top:4px;padding:10px 22px;border-radius:999px;background:linear-gradient(135deg,#1697ba,#2db8db);color:#fff;font-size:0.9rem;font-weight:700;text-decoration:none;">
+                Manage notifications
+            </a>
         </section>
 
         <form method="post" enctype="multipart/form-data" class="settings-card settings-form-card">

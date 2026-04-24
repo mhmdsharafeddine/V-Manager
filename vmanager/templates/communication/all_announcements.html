@@ -5,6 +5,225 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'communication/hub.css' %}?v=3">
+    <style>
+        .ann-filter-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .45rem;
+            padding: .85rem 0 1.1rem;
+            border-bottom: 1px solid var(--border, #e2e8f0);
+            margin-bottom: 1.1rem;
+        }
+        .ann-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .3rem .85rem;
+            border-radius: 999px;
+            border: 1px solid var(--border, #e2e8f0);
+            background: var(--surface, #fff);
+            color: var(--text-primary, #1e293b);
+            font-size: .8125rem;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .ann-filter-chip:hover {
+            border-color: var(--accent, #11a0c8);
+            color: var(--accent, #11a0c8);
+        }
+        .ann-filter-chip--active {
+            background: var(--accent, #11a0c8);
+            border-color: var(--accent, #11a0c8);
+            color: #fff;
+        }
+        .ann-filter-chip--active .ann-filter-role {
+            color: rgba(255, 255, 255, .75);
+        }
+        .ann-filter-role {
+            font-size: .7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: var(--text-muted, #64748b);
+        }
+        .announcement-pin-button {
+            background: none;
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 6px;
+            color: var(--text-muted, #64748b);
+            cursor: pointer;
+            font-size: .78rem;
+            padding: .25rem .65rem;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .announcement-pin-button:hover {
+            border-color: var(--accent, #11a0c8);
+            color: var(--accent, #11a0c8);
+        }
+        .announcement-pin-button--active {
+            border-color: var(--accent, #11a0c8);
+            color: var(--accent, #11a0c8);
+        }
+        .announcement-pin-button--active:hover {
+            background: var(--accent, #11a0c8);
+            color: #fff;
+        }
+
+        /* ── Comment system ────────────────────────────────── */
+        .ann-comment-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: none;
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 999px;
+            color: var(--text-muted, #64748b);
+            cursor: pointer;
+            font-size: .78rem;
+            padding: .25rem .7rem;
+            transition: border-color .15s, color .15s;
+        }
+        .ann-comment-toggle:hover, .ann-comment-toggle[aria-expanded="true"] {
+            border-color: var(--accent, #11a0c8);
+            color: var(--accent, #11a0c8);
+        }
+        .ann-comment-count {
+            font-weight: 700;
+        }
+        .ann-comment-panel {
+            border-top: 1px solid var(--border, #e2e8f0);
+            margin-top: .9rem;
+            padding-top: .9rem;
+        }
+        .ann-comment { padding: .55rem 0; }
+        .ann-comment + .ann-comment { border-top: 1px solid var(--border, #e2e8f0); }
+        .ann-comment--reply {
+            margin-left: 2.4rem;
+            padding-left: .75rem;
+            border-left: 2px solid var(--border, #e2e8f0);
+            border-top: none;
+        }
+        .ann-comment--reply + .ann-comment--reply { border-top: 1px solid var(--border, #e2e8f0); }
+        .ann-comment-header {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+            margin-bottom: .3rem;
+        }
+        .ann-av {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            font-size: .7rem;
+            font-weight: 800;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .ann-comment-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: .25rem .45rem;
+            line-height: 1.2;
+        }
+        .ann-comment-author { font-size: .82rem; font-weight: 700; color: var(--text-primary, #1e293b); }
+        .ann-comment-role {
+            font-size: .68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: #fff;
+            background: var(--accent, #11a0c8);
+            border-radius: 999px;
+            padding: 0 .45rem;
+        }
+        .ann-comment-time { font-size: .72rem; color: var(--text-muted, #64748b); }
+        .ann-comment-body {
+            margin: 0 0 .25rem 2.55rem;
+            font-size: .82rem;
+            line-height: 1.45;
+            color: var(--text-primary, #1e293b);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .ann-comment-foot {
+            display: flex;
+            gap: .5rem;
+            margin-left: 2.55rem;
+        }
+        .ann-reply-btn, .ann-cancel-reply {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: .74rem;
+            color: var(--text-muted, #64748b);
+            padding: 0;
+            text-decoration: underline;
+        }
+        .ann-reply-btn:hover, .ann-cancel-reply:hover { color: var(--accent, #11a0c8); }
+        .ann-replies { margin-top: .4rem; }
+        .ann-reply-form-wrap { margin: .4rem 0 0 2.55rem; }
+        .ann-comment-form, .ann-reply-form { margin-top: 1rem; }
+        .ann-comment-textarea {
+            width: 100%;
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 8px;
+            padding: .5rem .65rem;
+            font-size: .83rem;
+            font-family: inherit;
+            resize: vertical;
+            box-sizing: border-box;
+            background: var(--surface, #fff);
+            color: var(--text-primary, #1e293b);
+            transition: border-color .15s;
+        }
+        .ann-comment-textarea:focus {
+            outline: none;
+            border-color: var(--accent, #11a0c8);
+        }
+        .ann-comment-form-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: .4rem;
+        }
+        .ann-comment-chars { font-size: .72rem; color: var(--text-muted, #64748b); }
+        .ann-comment-chars--warn { color: #c0392b; font-weight: 700; }
+        .ann-comment-submit {
+            border: none;
+            border-radius: 999px;
+            background: var(--accent, #11a0c8);
+            color: #fff;
+            font-size: .78rem;
+            font-weight: 700;
+            padding: .3rem .9rem;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        .ann-comment-submit:disabled { opacity: .55; cursor: not-allowed; }
+        .ann-load-more-wrap { text-align: center; margin: .6rem 0; }
+        .ann-load-more {
+            background: none;
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 999px;
+            color: var(--text-muted, #64748b);
+            cursor: pointer;
+            font-size: .78rem;
+            padding: .3rem .9rem;
+            transition: border-color .15s, color .15s;
+        }
+        .ann-load-more:hover { border-color: var(--accent, #11a0c8); color: var(--accent, #11a0c8); }
+        .ann-comment-spinner, .ann-comment-empty, .ann-comment-error {
+            font-size: .82rem;
+            color: var(--text-muted, #64748b);
+            padding: .5rem 0;
+        }
+        .ann-comment-error { color: #c0392b; }
+    </style>
 {% endblock %}
 
 {% block content %}
@@ -19,7 +238,11 @@
     <main class="communication-page communication-all-page" id="all-announcements-page">
         <section class="container communication-intro">
             <h1>All Announcements</h1>
-            <p>Showing every announcement available to your account ({{ announcement_count }} total).</p>
+            {% if active_author_name %}
+                <p>Showing announcements from <strong>{{ active_author_name }}</strong> ({{ announcement_count }} total). <a href="{% url 'communication:announcements' %}">Clear filter</a></p>
+            {% else %}
+                <p>Showing every announcement available to your account ({{ announcement_count }} total).</p>
+            {% endif %}
             <a class="all-announcements-back-link" href="{% url 'communication:hub' %}">Back to Communication Hub</a>
         </section>
 
@@ -34,23 +257,35 @@
                     <h2 id="all-announcements-title">Announcements Feed</h2>
                 </header>
 
+                {% if author_filters %}
+                <nav class="ann-filter-strip" aria-label="Filter by sender">
+                    <a class="ann-filter-chip{% if not active_author_id %} ann-filter-chip--active{% endif %}"
+                       href="{% url 'communication:announcements' %}">All</a>
+                    {% for sender in author_filters %}
+                        <a class="ann-filter-chip{% if active_author_id == sender.id %} ann-filter-chip--active{% endif %}"
+                           href="{% url 'communication:announcements' %}?author={{ sender.id }}">
+                            {{ sender.name }}<span class="ann-filter-role">{{ sender.role_label }}</span>
+                        </a>
+                    {% endfor %}
+                </nav>
+                {% endif %}
+
                 <div class="announcement-list" role="list">
                     {% if announcements %}
                         {% for announcement in announcements %}
-                            <article class="announcement-item" role="listitem">
+                            <article class="announcement-item" data-ann-id="{{ announcement.id }}" role="listitem">
                                 <div class="announcement-top">
                                     <h3>{{ announcement.title|default:"Untitled Announcement" }}</h3>
                                     <div class="badges">
                                         {% if announcement.is_pinned %}
                                             <span class="badge badge-pinned">Pinned</span>
                                         {% endif %}
-                                        {% if announcement.badges %}
-                                            {% for badge in announcement.badges %}
-                                                <span class="badge badge-{{ badge.variant|default:'default' }}">{{ badge.label|default:"Tag" }}</span>
-                                            {% endfor %}
-                                        {% elif announcement.priority %}
-                                            <span class="badge badge-{{ announcement.priority|lower }}">{{ announcement.priority }}</span>
-                                        {% endif %}
+                                        {% for badge in announcement.badges %}
+                                            <span class="badge badge-{{ badge.variant|default:'default' }}">
+                                                {% if badge.variant == 'urgent' %}<span class="badge-dot" aria-hidden="true"></span>{% endif %}
+                                                {{ badge.label|default:"Tag" }}
+                                            </span>
+                                        {% endfor %}
                                     </div>
                                 </div>
                                 <p class="meta">{{ announcement.author_name|default:"Unknown author" }}{% if announcement.created_label %} · {{ announcement.created_label }}{% endif %}</p>
@@ -68,6 +303,36 @@
                                             <button type="submit" class="announcement-read-button">Set as read</button>
                                         </form>
                                     {% endif %}
+                                    {% if can_pin_announcements %}
+                                        <form method="post" action="{% url 'communication:toggle_pin' announcement.id %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            {% if announcement.is_pinned %}
+                                                <button type="submit" class="announcement-pin-button announcement-pin-button--active">Unpin</button>
+                                            {% else %}
+                                                <button type="submit" class="announcement-pin-button">Pin</button>
+                                            {% endif %}
+                                        </form>
+                                    {% endif %}
+                                    <button type="button" class="ann-comment-toggle"
+                                            data-ann-id="{{ announcement.id }}"
+                                            aria-controls="comment-panel-{{ announcement.id }}"
+                                            aria-expanded="false">
+                                        💬 <span class="ann-comment-count">{{ announcement.comment_count }}</span>
+                                    </button>
+                                </div>
+                                <div class="ann-comment-panel" id="comment-panel-{{ announcement.id }}" hidden>
+                                    <div class="ann-comment-list"></div>
+                                    <div class="ann-load-more-wrap" hidden>
+                                        <button type="button" class="ann-load-more" data-ann-id="{{ announcement.id }}">Load more</button>
+                                    </div>
+                                    <form class="ann-comment-form" data-ann-id="{{ announcement.id }}" novalidate>
+                                        <textarea class="ann-comment-textarea" placeholder="Write a comment…" maxlength="2000" rows="2" required></textarea>
+                                        <div class="ann-comment-form-row">
+                                            <span class="ann-comment-chars">2000 left</span>
+                                            <button type="submit" class="ann-comment-submit">Post</button>
+                                        </div>
+                                    </form>
                                 </div>
                             </article>
                         {% endfor %}
@@ -100,4 +365,6 @@
             }, 2600);
         })();
     </script>
+
+    {% include "communication/announcement_rt_js.html" %}
 {% endblock %}

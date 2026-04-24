@@ -25,4 +25,5 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("api/me/", views.me_view, name="me"),
+    path("notification-preferences/", views.notification_preferences_view, name="notification_preferences"),
 ]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AccountProfile, EmailVerificationCode
+from .models import AccountProfile, EmailVerificationCode, NotificationPreferences
 
 
 @admin.register(AccountProfile)
@@ -23,3 +23,10 @@ class EmailVerificationCodeAdmin(admin.ModelAdmin):
     list_display = ("user", "purpose", "expires_at", "used_at", "created_at")
     list_filter = ("purpose", "used_at")
     search_fields = ("user__email",)
+
+
+@admin.register(NotificationPreferences)
+class NotificationPreferencesAdmin(admin.ModelAdmin):
+    list_display = ("user", "email_enabled", "push_enabled", "quiet_hours_enabled", "updated_at")
+    list_filter = ("email_enabled", "push_enabled", "quiet_hours_enabled")
+    search_fields = ("user__email", "user__first_name", "user__last_name")
