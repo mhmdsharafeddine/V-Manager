@@ -106,8 +106,78 @@
 
 .perf-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 16px;
+}
+
+.perf-range-card {
+    border: 1px solid rgba(17, 160, 200, 0.26);
+    border-radius: 24px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 28px rgba(17, 160, 200, 0.1);
+    display: grid;
+    gap: 10px;
+}
+
+.perf-range-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.perf-range-card-head p {
+    margin: 0;
+    color: #10243d;
+    font-weight: 800;
+}
+
+.perf-range-card-head small {
+    color: #4d657c;
+    font-size: 0.82rem;
+}
+
+.perf-range-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.perf-range-btn {
+    border: 1px solid rgba(17, 160, 200, 0.32);
+    border-radius: 999px;
+    padding: 7px 12px;
+    background: #ffffff;
+    color: #1e425b;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.perf-range-btn.is-active {
+    border-color: #0c6f93;
+    background: linear-gradient(135deg, #11a0c8, #0e7ea6);
+    color: #ffffff;
+}
+
+.perf-range-month-wrap {
+    display: grid;
+    gap: 6px;
+    color: #4d657c;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.perf-range-month-wrap input {
+    min-height: 36px;
+    border: 1px solid rgba(17, 160, 200, 0.34);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font: inherit;
+    color: #1d3e56;
+    background: #ffffff;
 }
 
 .perf-kpi-card {
@@ -171,6 +241,26 @@
     margin-top: 12px;
     font-size: 2rem;
     line-height: 1;
+}
+
+.perf-kpi-trend {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.perf-kpi-trend.trend-up {
+    color: #d4ffe6;
+}
+
+.perf-kpi-trend.trend-down {
+    color: #ffe1e1;
+}
+
+.perf-kpi-trend.trend-flat {
+    color: #eef6ff;
 }
 
 .perf-kpi-teal {
@@ -291,6 +381,13 @@
     border-radius: 12px;
     padding: 8px 10px;
     background: #ffffff;
+}
+
+#id_participation_status {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none;
 }
 
 .team-checkbox {

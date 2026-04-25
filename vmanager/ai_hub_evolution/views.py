@@ -77,28 +77,79 @@ def to_pct(values, games, max_val):
         for i in range(6)
     ]
 
+
+def _build_player_payload(*, member_id, name, avatar, position, kills, aces, blocks, count, monthly):
+    games = max(count, 1)
+    monthly_kill_pct = to_pct(monthly["kills"], monthly["games"], MAX_KILLS)
+    monthly_ace_pct = to_pct(monthly["aces"], monthly["games"], MAX_ACES)
+    monthly_block_pct = to_pct(monthly["blocks"], monthly["games"], MAX_BLOCKS)
+    monthly_rating = [
+        compute_rating(monthly_kill_pct[i], monthly_ace_pct[i], monthly_block_pct[i], position)
+        for i in range(6)
+    ]
+
+    played_ratings = [monthly_rating[i] for i in range(6) if monthly["games"][i] > 0]
+    rating = round(sum(played_ratings) / len(played_ratings)) if played_ratings else 0
+
+    skills = compute_skill_tags(kills, aces, blocks, games, rating)
+    best_skill = max(skills, key=lambda x: x["level"]) if skills else None
+
+    return {
+        "id": member_id,
+        "name": name,
+        "avatar": avatar,
+        "position": position,
+        "rating": rating,
+        "growth": round((aces / games) * 10) if games else 0,
+        "primary_tag": best_skill["name"] if best_skill else "No Tag",
+        "tag_icon": best_skill["icon"] if best_skill else "⭐",
+        "tag_color": best_skill["color"] if best_skill else "purple",
+        "skills": skills,
+        "monthly_stats": {
+            "attack_eff": monthly_kill_pct,
+            "serving_ace": monthly_ace_pct,
+            "blocking": monthly_block_pct,
+            "rating": monthly_rating,
+        },
+    }
+
 # Determine season start year
 @login_required
 def home(request):
-    
     user = request.user
+    membership = TeamMembership.objects.select_related("team").filter(
+        user=user,
+        is_active=True,
+        status=TeamMembership.STATUS_APPROVED,
+    ).first()
+    team = membership.team if membership else None
 
-    if not user.is_authenticated:
-        records = TeamPerformanceRecord.objects.none()
-    else:
-        team = user.team_membership.team  # adjust if needed
-
+    if team is not None:
         records = TeamPerformanceRecord.objects.select_related(
             "member",
             "member__user",
         ).filter(
-            team=team  
+            team=team
         ).filter(
             Q(event__scheduled_at__month__gte=9) |
             Q(event__scheduled_at__month__lte=2)
         )
+    else:
+        records = TeamPerformanceRecord.objects.none()
 
     player_map = {}
+    team_totals = {
+        "kills": 0,
+        "aces": 0,
+        "blocks": 0,
+        "count": 0,
+        "monthly": {
+            "kills": [0] * 6,
+            "aces": [0] * 6,
+            "blocks": [0] * 6,
+            "games": [0] * 6,
+        },
+    }
     
     for r in records:
         member = r.member
@@ -130,6 +181,11 @@ def home(request):
         p["blocks"] += r.blocks
         p["count"] += 1
 
+        team_totals["kills"] += r.kills
+        team_totals["aces"] += r.aces
+        team_totals["blocks"] += r.blocks
+        team_totals["count"] += 1
+
 
         month = r.event.scheduled_at.month
 
@@ -140,67 +196,48 @@ def home(request):
             p["monthly"]["aces"][idx] += r.aces
             p["monthly"]["blocks"][idx] += r.blocks
             p["monthly"]["games"][idx] += 1
+            team_totals["monthly"]["kills"][idx] += r.kills
+            team_totals["monthly"]["aces"][idx] += r.aces
+            team_totals["monthly"]["blocks"][idx] += r.blocks
+            team_totals["monthly"]["games"][idx] += 1
 
     players = []
-    
-    
-
     for p in player_map.values():
-        games  = max(p["count"], 1)
-        monthly = p["monthly"]
-        position = p["position"]
-        # ── Monthly pct arrays (same formula for both chart + overall) ──
-        monthly_kill_pct  = to_pct(monthly["kills"],  monthly["games"], MAX_KILLS)
-        monthly_ace_pct   = to_pct(monthly["aces"],   monthly["games"], MAX_ACES)
-        monthly_block_pct = to_pct(monthly["blocks"], monthly["games"], MAX_BLOCKS)
-        monthly_rating    = [
-            compute_rating(monthly_kill_pct[i], monthly_ace_pct[i], monthly_block_pct[i],position)
-            for i in range(6)
-        ]
-
-        # ── Overall rating = average of months that had games ──────────
-        # This makes it consistent with what the chart shows
-        played_ratings = [monthly_rating[i] for i in range(6) if monthly["games"][i] > 0]
-        rating = round(sum(played_ratings) / len(played_ratings)) if played_ratings else 0
-
-        # ── Season-total pcts (used only for skill tags) ───────────────
-        kills_pct  = (p["kills"]  / games) / MAX_KILLS  * 100
-        aces_pct   = (p["aces"]   / games) / MAX_ACES   * 100
-        blocks_pct = (p["blocks"] / games) / MAX_BLOCKS * 100
-
-        skills     = compute_skill_tags(p["kills"], p["aces"], p["blocks"], games, rating)
-        best_skill = max(skills, key=lambda x: x["level"]) if skills else None
-
-        players.append({
-            "id":          p["id"],
-            "name":        p["name"],
-            "avatar":      p["avatar"],
-            "position":    p["position"],
-            "rating":      rating,               # ← now matches monthly scale
-            "growth":      round((p["aces"] / games) * 10),
-            "primary_tag": best_skill["name"]  if best_skill else "No Tag",
-            "tag_icon":    best_skill["icon"]  if best_skill else "⭐",
-            "tag_color":   best_skill["color"] if best_skill else "purple",
-            "skills":      skills,
-            "monthly_stats": {
-                "attack_eff":  monthly_kill_pct,
-                "serving_ace": monthly_ace_pct,
-                "blocking":    monthly_block_pct,
-                "rating":      monthly_rating,   # ← same compute_rating() used here
-            },
-        })
-    
-
-      
+        players.append(
+            _build_player_payload(
+                member_id=p["id"],
+                name=p["name"],
+                avatar=p["avatar"],
+                position=p["position"],
+                kills=p["kills"],
+                aces=p["aces"],
+                blocks=p["blocks"],
+                count=p["count"],
+                monthly=p["monthly"],
+            )
+        )
 
     players = sorted(players, key=lambda x: x["rating"], reverse=True)
-    if len(players) >= 3:
-        players = [players[0], players[len(players) // 2], players[-1]]
-    elif len(players) == 2:
-        players = [players[0], players[-1]]
+
+    team_name = team.name if team else "All Players Overview"
+
+    team_overview = _build_player_payload(
+        member_id="all",
+        name=team_name,
+        avatar="",
+        position="Team-wide Evolution Hub",
+        kills=team_totals["kills"],
+        aces=team_totals["aces"],
+        blocks=team_totals["blocks"],
+        count=team_totals["count"],
+        monthly=team_totals["monthly"],
+    )
+    team_overview["growth"] = round(team_overview["growth"])
 
     return render(request, "ai_evo_hub/ai_display.html", {
-        "players": players
+        "players": players,
+        "team_overview": team_overview,
+        "team_name": team_name,
     })
 
 from django.http import JsonResponse

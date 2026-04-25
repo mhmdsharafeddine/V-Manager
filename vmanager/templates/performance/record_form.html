@@ -4,7 +4,7 @@
 {% block title %}Input Performance Data | V-Manager{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=6">
 {% endblock %}
 
 {% block body_class %}performance-page{% endblock %}
@@ -63,7 +63,7 @@
                     {{ form.result }}
                     {{ form.result.errors }}
                 </div>
-                <div class="team-field">
+                <div class="team-field{% if not is_edit and not form.event.value %} is-hidden-display{% endif %}" id="perf-participation-field-wrap">
                     <label for="{{ form.participation_status.id_for_label }}">{{ form.participation_status.label }}</label>
                     {{ form.participation_status }}
                     {{ form.participation_status.errors }}
@@ -153,9 +153,13 @@
     </section>
 </main>
 
+{{ event_participation_defaults|json_script:"event-participation-defaults" }}
 <script>
 (() => {
+    const eventParticipationDefaults = JSON.parse(document.getElementById("event-participation-defaults").textContent || "{}");
     const participationStatusInput = document.getElementById("id_participation_status");
+    const eventInput = document.getElementById("id_event");
+    const participationWrap = document.getElementById("perf-participation-field-wrap");
     const injuryStatusRow = document.querySelector("[data-injury-status-row]");
     const injuryStatusInput = document.getElementById("id_injury_status");
     const syncInjuryVisibility = () => {
@@ -173,6 +177,29 @@
 
     if (participationStatusInput) {
         participationStatusInput.addEventListener("change", syncInjuryVisibility);
+    }
+
+    if (eventInput && participationStatusInput) {
+        eventInput.addEventListener("change", () => {
+            const selectedEventId = eventInput.value;
+            if (participationWrap) {
+                participationWrap.classList.toggle("is-hidden-display", !selectedEventId);
+            }
+
+            if (!selectedEventId) {
+                participationStatusInput.value = "present";
+                syncInjuryVisibility();
+                return;
+            }
+
+            const defaultStatus = eventParticipationDefaults[selectedEventId] || "present";
+            participationStatusInput.value = defaultStatus;
+            syncInjuryVisibility();
+        });
+
+        if (participationWrap) {
+            participationWrap.classList.toggle("is-hidden-display", !eventInput.value);
+        }
     }
 
     const memberSelect = document.getElementById("id_member");

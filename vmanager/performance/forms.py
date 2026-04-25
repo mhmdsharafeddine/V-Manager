@@ -1,12 +1,35 @@
 from django import forms
 
 from accounts.models import AccountProfile
+from scheduling.models import EventAttendance
 from team_management.models import TeamMembership
 
 from .models import TeamPerformanceRecord
 
 
 class TeamPerformanceRecordForm(forms.ModelForm):
+    @staticmethod
+    def _participation_from_attendance(event, member):
+        if event is None or member is None:
+            return TeamPerformanceRecord.PARTICIPATION_PRESENT
+
+        attendance = EventAttendance.objects.filter(
+            event=event,
+            player_id=member.user_id,
+        ).first()
+        if attendance is None:
+            return TeamPerformanceRecord.PARTICIPATION_PRESENT
+
+        if attendance.status == EventAttendance.STATUS_ATTENDING:
+            return TeamPerformanceRecord.PARTICIPATION_PRESENT
+        if attendance.status == EventAttendance.STATUS_NOT_ATTENDING:
+            if attendance.not_attending_reason == EventAttendance.REASON_INJURED:
+                return TeamPerformanceRecord.PARTICIPATION_INJURED
+            return TeamPerformanceRecord.PARTICIPATION_DID_NOT_ATTEND
+        if attendance.status == EventAttendance.STATUS_MAYBE:
+            return TeamPerformanceRecord.PARTICIPATION_ABSENT
+        return TeamPerformanceRecord.PARTICIPATION_PRESENT
+
     class Meta:
         model = TeamPerformanceRecord
         fields = [
@@ -72,6 +95,11 @@ class TeamPerformanceRecordForm(forms.ModelForm):
                 event_queryset = event_queryset.exclude(id__in=used_event_ids)
 
             self.fields["event"].queryset = event_queryset
+            self.fields["event"].empty_label = "Select an event"
+
+            has_initial_event = bool(self.initial.get("event") or getattr(self.instance, "event_id", None))
+            if not self.is_bound and not has_initial_event:
+                self.initial["event"] = ""
 
         for field in self.fields.values():
             css = field.widget.attrs.get("class", "")
@@ -79,6 +107,29 @@ class TeamPerformanceRecordForm(forms.ModelForm):
 
         self.fields["target_achieved"].widget.attrs["class"] = "team-checkbox"
         self.fields["injury_status"].choices = [("", "Select Injury Status"), *TeamPerformanceRecord.INJURY_STATUS_CHOICES]
+        self.fields["participation_status"].disabled = True
+        self.fields["participation_status"].help_text = "Auto-synced from this player's schedule RSVP for the selected event."
+
+        selected_event = None
+        selected_member = None
+        if self.is_bound:
+            raw_event_id = str(self.data.get("event") or "").strip()
+            raw_member_id = str(self.data.get("member") or "").strip()
+            if raw_event_id.isdigit():
+                selected_event = self.fields["event"].queryset.filter(pk=int(raw_event_id)).first()
+            if raw_member_id.isdigit():
+                selected_member = self.fields["member"].queryset.filter(pk=int(raw_member_id)).first()
+        else:
+            selected_event = self.initial.get("event") or getattr(self.instance, "event", None)
+            selected_member = self.initial.get("member") or getattr(self.instance, "member", None)
+            if isinstance(selected_event, str) and selected_event.isdigit():
+                selected_event = self.fields["event"].queryset.filter(pk=int(selected_event)).first()
+            if isinstance(selected_member, str) and selected_member.isdigit():
+                selected_member = self.fields["member"].queryset.filter(pk=int(selected_member)).first()
+
+        auto_participation = self._participation_from_attendance(selected_event, selected_member)
+        self.initial["participation_status"] = auto_participation
+        self.fields["participation_status"].initial = auto_participation
 
     def clean(self):
         cleaned = super().clean()
@@ -108,6 +159,11 @@ class TeamPerformanceRecordForm(forms.ModelForm):
                     "event",
                     "This player already has data for this event. Edit the existing record instead of creating a new one.",
                 )
+
+        if event and member:
+            cleaned["participation_status"] = self._participation_from_attendance(event, member)
+        else:
+            cleaned["participation_status"] = TeamPerformanceRecord.PARTICIPATION_PRESENT
 
         participation_status = cleaned.get("participation_status")
         injury_status = (cleaned.get("injury_status") or "").strip()

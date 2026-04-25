@@ -4,7 +4,7 @@
 {% block title %}Performance Analytics | V-Manager{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'performance/performance.css' %}?v=7">
 {% endblock %}
 
 {% block body_class %}performance-page{% endblock %}
@@ -33,25 +33,45 @@
     </section>
 
     <section class="container perf-kpi-grid">
+        <article class="perf-range-card" aria-label="Dashboard date range">
+            <div class="perf-range-card-head">
+                <p>Date Range</p>
+                <small data-range-active-label>Full Season</small>
+            </div>
+            <div class="perf-range-actions" role="group" aria-label="Quick ranges">
+                <button type="button" class="perf-range-btn is-active" data-range-option="full_season">Full Season</button>
+                <button type="button" class="perf-range-btn" data-range-option="month">By Month</button>
+                <button type="button" class="perf-range-btn" data-range-option="last_match">Last Match</button>
+            </div>
+            <label class="perf-range-month-wrap" data-range-month-wrap hidden>
+                Month
+                <input type="month" id="perf-range-month" />
+            </label>
+        </article>
         <article class="perf-kpi-card perf-kpi-teal">
             <p>Total Events</p>
-            <strong>{{ total_events }}</strong>
+            <strong data-kpi-value="total_events">{{ total_events }}</strong>
+            <small class="perf-kpi-trend" data-kpi-trend="total_events"></small>
         </article>
         <article class="perf-kpi-card perf-kpi-green">
             <p>Wins</p>
-            <strong>{{ wins }}</strong>
+            <strong data-kpi-value="wins">{{ wins }}</strong>
+            <small class="perf-kpi-trend" data-kpi-trend="wins"></small>
         </article>
         <article class="perf-kpi-card perf-kpi-red">
             <p>Losses</p>
-            <strong>{{ losses }}</strong>
+            <strong data-kpi-value="losses">{{ losses }}</strong>
+            <small class="perf-kpi-trend" data-kpi-trend="losses"></small>
         </article>
         <article class="perf-kpi-card perf-kpi-amber">
             <p>Win Rate</p>
-            <strong>{{ win_rate }}%</strong>
+            <strong data-kpi-value="win_rate">{{ win_rate }}%</strong>
+            <small class="perf-kpi-trend" data-kpi-trend="win_rate"></small>
         </article>
         <article class="perf-kpi-card perf-kpi-blue">
             <p>Avg Target Achievement</p>
-            <strong>{{ avg_target_percent }}%</strong>
+            <strong data-kpi-value="avg_target_percent">{{ avg_target_percent }}%</strong>
+            <small class="perf-kpi-trend" data-kpi-trend="avg_target_percent"></small>
         </article>
     </section>
 
@@ -124,6 +144,7 @@
     {{ top_kills|json_script:"perf-top-kills" }}
     {{ top_aces|json_script:"perf-top-aces" }}
     {{ top_blocks|json_script:"perf-top-blocks" }}
+    {{ dashboard_data|json_script:"perf-dashboard-data" }}
 </main>
 {% endblock %}
 
@@ -131,6 +152,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (() => {
+    const summaryEndpoint = "{% url 'performance:dashboard_summary' %}";
+    const initialDashboardData = JSON.parse(document.getElementById("perf-dashboard-data").textContent || "{}");
     const toasts = document.querySelectorAll(".toast-message");
     toasts.forEach((toast) => {
         window.setTimeout(() => {
@@ -138,6 +161,23 @@
             window.setTimeout(() => toast.remove(), 300);
         }, 2400);
     });
+
+    const rangeButtons = document.querySelectorAll("[data-range-option]");
+    const rangeMonthWrap = document.querySelector("[data-range-month-wrap]");
+    const rangeMonthInput = document.getElementById("perf-range-month");
+    const rangeActiveLabel = document.querySelector("[data-range-active-label]");
+    const kpiValueNodes = document.querySelectorAll("[data-kpi-value]");
+    const kpiTrendNodes = document.querySelectorAll("[data-kpi-trend]");
+
+    const getCurrentMonthValue = () => {
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        return `${now.getFullYear()}-${month}`;
+    };
+
+    if (rangeMonthInput && !rangeMonthInput.value) {
+        rangeMonthInput.value = getCurrentMonthValue();
+    }
 
     const monthLabels = JSON.parse(document.getElementById("perf-month-labels").textContent || "[]");
     const monthPoints = JSON.parse(document.getElementById("perf-month-points").textContent || "[]");
@@ -147,9 +187,13 @@
     const topAces = JSON.parse(document.getElementById("perf-top-aces").textContent || "[]");
     const topBlocks = JSON.parse(document.getElementById("perf-top-blocks").textContent || "[]");
 
+    let trendChart = null;
+    let distributionChart = null;
+    let topPlayersChart = null;
+
     const trendCanvas = document.getElementById("seasonTrendChart");
     if (trendCanvas) {
-        new Chart(trendCanvas, {
+        trendChart = new Chart(trendCanvas, {
             type: "line",
             data: {
                 labels: monthLabels,
@@ -182,7 +226,7 @@
 
     const distributionCanvas = document.getElementById("distributionChart");
     if (distributionCanvas) {
-        new Chart(distributionCanvas, {
+        distributionChart = new Chart(distributionCanvas, {
             type: "doughnut",
             data: {
                 labels: ["Match", "Tournament", "Practice", "Strength Training", "Other"],
@@ -201,7 +245,7 @@
 
     const topPlayersCanvas = document.getElementById("topPlayersChart");
     if (topPlayersCanvas) {
-        new Chart(topPlayersCanvas, {
+        topPlayersChart = new Chart(topPlayersCanvas, {
             type: "bar",
             data: {
                 labels: topLabels,
@@ -228,6 +272,142 @@
                 maintainAspectRatio: true,
                 aspectRatio: 2,
             },
+        });
+    }
+
+    const formatTrend = (metricKey, trendData, previousLabel) => {
+        if (!trendData) {
+            return "";
+        }
+        const absDelta = Math.abs(Number(trendData.delta || 0));
+        const isPercent = metricKey === "win_rate" || metricKey === "avg_target_percent";
+        const suffix = isPercent ? "%" : "";
+        const sign = trendData.direction === "up" ? "+" : trendData.direction === "down" ? "-" : "";
+        if (trendData.direction === "flat") {
+            return `No change vs ${previousLabel}`;
+        }
+        return `${sign}${absDelta}${suffix} vs ${previousLabel}`;
+    };
+
+    const applyKpiState = (payload) => {
+        const summary = payload.summary || {};
+        const trends = payload.trends || {};
+        const previousLabel = payload.previous_month_label || "previous month";
+
+        kpiValueNodes.forEach((node) => {
+            const key = node.dataset.kpiValue;
+            const value = summary[key] ?? 0;
+            const needsPercent = key === "win_rate" || key === "avg_target_percent";
+            node.textContent = `${value}${needsPercent ? "%" : ""}`;
+        });
+
+        kpiTrendNodes.forEach((node) => {
+            const key = node.dataset.kpiTrend;
+            const trend = trends[key];
+            node.classList.remove("trend-up", "trend-down", "trend-flat");
+            if (trend) {
+                node.classList.add(`trend-${trend.direction || "flat"}`);
+            }
+            node.textContent = formatTrend(key, trend, previousLabel);
+        });
+    };
+
+    const applyChartState = (payload) => {
+        const charts = payload.charts || {};
+        if (trendChart) {
+            trendChart.data.labels = charts.month_labels || [];
+            trendChart.data.datasets[0].data = charts.month_avg_points || [];
+            trendChart.data.datasets[1].data = charts.month_errors || [];
+            trendChart.update();
+        }
+
+        if (distributionChart) {
+            const distribution = charts.distribution || {};
+            distributionChart.data.datasets[0].data = [
+                distribution.match || 0,
+                distribution.tournament || 0,
+                distribution.practice || 0,
+                distribution.training || 0,
+                distribution.other || 0,
+            ];
+            distributionChart.update();
+        }
+
+        if (topPlayersChart) {
+            topPlayersChart.data.labels = charts.top_labels || [];
+            topPlayersChart.data.datasets[0].data = charts.top_kills || [];
+            topPlayersChart.data.datasets[1].data = charts.top_aces || [];
+            topPlayersChart.data.datasets[2].data = charts.top_blocks || [];
+            topPlayersChart.update();
+        }
+    };
+
+    const updateActiveRangeUi = (rangeKey) => {
+        rangeButtons.forEach((button) => {
+            button.classList.toggle("is-active", button.dataset.rangeOption === rangeKey);
+        });
+        if (rangeMonthWrap) {
+            rangeMonthWrap.hidden = rangeKey !== "month";
+        }
+        if (rangeActiveLabel) {
+            if (rangeKey === "month" && rangeMonthInput && rangeMonthInput.value) {
+                rangeActiveLabel.textContent = `Month: ${rangeMonthInput.value}`;
+            } else if (rangeKey === "last_match") {
+                rangeActiveLabel.textContent = "Last Match";
+            } else {
+                rangeActiveLabel.textContent = "Full Season";
+            }
+        }
+    };
+
+    const fetchDashboardSummary = async (rangeKey) => {
+        const params = new URLSearchParams({ range: rangeKey });
+        if (rangeKey === "month" && rangeMonthInput && rangeMonthInput.value) {
+            params.set("month", rangeMonthInput.value);
+        }
+
+        const response = await fetch(`${summaryEndpoint}?${params.toString()}`, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.error || "Unable to load dashboard summary");
+        }
+        return payload;
+    };
+
+    let currentRange = initialDashboardData.range || "full_season";
+    updateActiveRangeUi(currentRange);
+    applyKpiState(initialDashboardData);
+
+    rangeButtons.forEach((button) => {
+        button.addEventListener("click", async () => {
+            const nextRange = button.dataset.rangeOption || "full_season";
+            currentRange = nextRange;
+            updateActiveRangeUi(currentRange);
+            try {
+                const payload = await fetchDashboardSummary(currentRange);
+                applyKpiState(payload);
+                applyChartState(payload);
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    });
+
+    if (rangeMonthInput) {
+        rangeMonthInput.addEventListener("change", async () => {
+            if (currentRange !== "month") {
+                return;
+            }
+            updateActiveRangeUi(currentRange);
+            try {
+                const payload = await fetchDashboardSummary(currentRange);
+                applyKpiState(payload);
+                applyChartState(payload);
+            } catch (error) {
+                console.error(error);
+            }
         });
     }
 })();

@@ -7,6 +7,7 @@ import joblib
 import os
 from django.conf import settings
 from team_management.models import TeamMembership
+from accounts.models import AccountProfile
 from performance.models import TeamPerformanceRecord
 from django.utils import timezone
 from scheduling.models import ScheduledEvent
@@ -76,9 +77,11 @@ def match_readiness_page(request):
     
   
     print(f"Next match for team {user_team.name}: {next_match}")
-    memberships = TeamMembership.objects.select_related("user", "team").filter(
+    memberships = TeamMembership.objects.select_related("user", "user__profile", "team").filter(
         team=user_team,
-        requested_role="player"           # adjust to your actual TeamMembership.role field/value
+        status=TeamMembership.STATUS_APPROVED,
+        is_active=True,
+        user__profile__role=AccountProfile.ROLE_PLAYER,
     )
 
     # Total distinct events for this team only

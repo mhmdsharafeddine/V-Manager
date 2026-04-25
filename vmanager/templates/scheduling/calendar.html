@@ -4,7 +4,7 @@
 {% block title %}Schedule Calendar | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=11">
+    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=12">
 {% endblock %}
 
 {% block body_class %}schedule-page schedule-calendar-page{% endblock %}
@@ -27,6 +27,9 @@
         <div class="schedule-heading-actions">
             <a class="btn btn-secondary btn-link" href="?ym={{ prev_ym }}" aria-label="Previous month">Previous</a>
             <a class="btn btn-secondary btn-link" href="?ym={{ next_ym }}" aria-label="Next month">Next</a>
+            {% if can_view_attendance_dashboard %}
+                <a class="btn btn-secondary btn-link" href="{% url 'scheduling:attendance_dashboard' %}">Attendance Tracker</a>
+            {% endif %}
             {% if can_create_events %}<a class="btn btn-primary btn-link" href="{% url 'scheduling:event_create' %}">Add Event</a>{% endif %}
         </div>
     </section>
@@ -51,6 +54,7 @@
                                 type="button"
                                 class="calendar-event-pill event-status-{{ event.status }}"
                                 data-event-detail
+                                data-event-id="{{ event.id }}"
                                 data-event-status="{{ event.status }}"
                                 data-start-local="{{ event.start_local_iso }}"
                                 data-end-local="{{ event.end_local_iso }}"
@@ -107,6 +111,7 @@
                             type="button"
                             class="btn btn-ghost"
                             data-event-detail
+                            data-event-id="{{ event.id }}"
                             data-event-title="{{ event.title|escape }}"
                             data-event-when="{{ event.when|escape }}"
                             data-event-time="{{ event.start_time }} - {{ event.end_time }}"
@@ -128,6 +133,26 @@
                             </form>
                         {% endif %}
                     </div>
+                    {% if is_player %}
+                        <div class="event-inline-rsvp" data-inline-rsvp data-event-id="{{ event.id }}" data-current-rsvp="{{ event.current_user_rsvp }}" data-current-reason="{{ event.current_user_not_attending_reason }}" data-current-note="{{ event.current_user_not_attending_reason_note|default:''|escape }}">
+                            <div class="event-inline-rsvp-buttons">
+                                <button type="button" class="btn btn-ghost btn-sm" data-inline-rsvp-status="attending">Attending</button>
+                                <button type="button" class="btn btn-ghost btn-sm" data-inline-rsvp-status="not_attending">Not Attending</button>
+                            </div>
+                            <div class="event-inline-reason" data-inline-reason-wrap hidden>
+                                <label for="inline-reason-{{ event.id }}">Reason</label>
+                                <div class="event-inline-reason-options" id="inline-reason-{{ event.id }}" role="group" aria-label="Select reason for not attending">
+                                    {% for option in not_attending_reason_options %}
+                                        <button type="button" class="event-reason-chip" data-inline-reason-choice="{{ option.value }}" aria-pressed="false">{{ option.label }}</button>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" data-inline-reason value="">
+                                <input type="text" data-inline-reason-note class="event-inline-reason-note" placeholder="Tell us the reason" maxlength="255" hidden>
+                                <p class="event-inline-reason-hint">Choose one reason, then save Not Attending.</p>
+                            </div>
+                            <p class="event-rsvp-feedback" data-inline-rsvp-feedback aria-live="polite"></p>
+                        </div>
+                    {% endif %}
                 </article>
             {% endfor %}
         {% else %}
@@ -152,8 +177,27 @@
             <p class="delete-modal-copy"><strong>Duration:</strong> <span data-event-modal-duration></span> min</p>
             <p class="delete-modal-copy"><strong>Audience:</strong> <span data-event-modal-audience></span></p>
             <p class="delete-modal-copy"><strong>Attendees:</strong> <span data-event-modal-attendees></span></p>
+            <p class="delete-modal-copy"><strong>Attendance Summary:</strong> <span data-event-modal-attendance-summary>-</span></p>
+            <p class="delete-modal-copy"><strong>Your RSVP:</strong> <span data-event-modal-rsvp-status>-</span></p>
             <p class="delete-modal-copy"><strong>Location:</strong> <span data-event-modal-location></span></p>
             <p class="delete-modal-copy"><strong>Details:</strong> <span data-event-modal-details></span></p>
+            {% if is_player %}
+                <div class="event-rsvp-actions" data-event-rsvp-actions>
+                    <button class="btn btn-ghost" type="button" data-rsvp-status="attending">I'm Attending</button>
+                    <button class="btn btn-ghost" type="button" data-rsvp-status="not_attending">Can't Attend</button>
+                </div>
+                <div class="event-inline-reason" data-modal-reason-wrap hidden>
+                    <label for="event-modal-not-attending-reason">Reason</label>
+                    <select id="event-modal-not-attending-reason" data-modal-not-attending-reason>
+                        <option value="">Select reason</option>
+                        {% for option in not_attending_reason_options %}
+                            <option value="{{ option.value }}">{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" id="event-modal-not-attending-reason-note" data-modal-not-attending-reason-note class="event-inline-reason-note" placeholder="Tell us the reason" maxlength="255" hidden>
+                </div>
+                <p class="event-rsvp-feedback" data-event-rsvp-feedback aria-live="polite"></p>
+            {% endif %}
             <div class="delete-modal-actions">
                 <button class="btn btn-secondary" type="button" data-event-modal-close>Close</button>
             </div>
@@ -163,6 +207,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ not_attending_reason_options|json_script:"not-attending-reasons" }}
 <script>
     (() => {
         const dayButtons = document.querySelectorAll(".calendar-cell[data-day]");
@@ -174,6 +219,198 @@
         const eventModal = document.querySelector("[data-event-modal]");
         const eventModalCloseButtons = document.querySelectorAll("[data-event-modal-close]");
         const toasts = document.querySelectorAll(".toast-message");
+        const rsvpButtons = document.querySelectorAll("[data-rsvp-status]");
+        const rsvpFeedback = document.querySelector("[data-event-rsvp-feedback]");
+        const modalReasonWrap = document.querySelector("[data-modal-reason-wrap]");
+        const modalReasonSelect = document.querySelector("[data-modal-not-attending-reason]");
+        const modalReasonNote = document.querySelector("[data-modal-not-attending-reason-note]");
+        const attendanceSummaryNode = document.querySelector("[data-event-modal-attendance-summary]");
+        const attendanceStatusNode = document.querySelector("[data-event-modal-rsvp-status]");
+        const inlineRsvpBlocks = document.querySelectorAll("[data-inline-rsvp]");
+        const reasonOptions = JSON.parse(document.getElementById("not-attending-reasons").textContent || "[]");
+        const reasonLabels = reasonOptions.reduce((acc, option) => {
+            acc[option.value] = option.label;
+            return acc;
+        }, {});
+        let currentEventId = null;
+
+        const detailUrlTemplate = "{% url 'scheduling:event_detail' 0 %}";
+        const rsvpUrlTemplate = "{% url 'scheduling:event_rsvp' 0 %}";
+
+        const getCookie = (name) => {
+            const cookies = document.cookie ? document.cookie.split(";") : [];
+            for (const cookie of cookies) {
+                const trimmed = cookie.trim();
+                if (trimmed.startsWith(name + "=")) {
+                    return decodeURIComponent(trimmed.slice(name.length + 1));
+                }
+            }
+            return "";
+        };
+
+        const csrfToken = getCookie("csrftoken");
+
+        const detailUrl = (eventId) => detailUrlTemplate.replace("/0/", `/${eventId}/`);
+        const rsvpUrl = (eventId) => rsvpUrlTemplate.replace("/0/", `/${eventId}/`);
+
+        const prettyRsvp = (value) => {
+            return {
+                attending: "Attending",
+                not_attending: "Not Attending",
+                "": "Not Responded",
+            }[value || ""] || "Not Responded";
+        };
+
+        const prettyReason = (value) => reasonLabels[value || ""] || "";
+
+        const setButtonVariant = (button, variant) => {
+            if (!button) {
+                return;
+            }
+
+            button.classList.remove("btn-primary", "btn-secondary", "btn-ghost");
+            if (variant === "primary") {
+                button.classList.add("btn-primary");
+                return;
+            }
+            if (variant === "secondary") {
+                button.classList.add("btn-secondary");
+                return;
+            }
+            button.classList.add("btn-ghost");
+        };
+
+        const applyRsvpButtonState = ({ buttons, activeStatus, getButtonStatus }) => {
+            const normalized = activeStatus || "";
+            (buttons || []).forEach((button) => {
+                const status = (typeof getButtonStatus === "function" ? getButtonStatus(button) : "") || "";
+                if (!status || status !== normalized) {
+                    setButtonVariant(button, "ghost");
+                    return;
+                }
+                setButtonVariant(button, "primary");
+            });
+        };
+
+        const applyReasonChoiceState = (container, inputNode, reasonValue) => {
+            if (inputNode) {
+                inputNode.value = reasonValue || "";
+            }
+
+            if (!container) {
+                return;
+            }
+
+            container.querySelectorAll("[data-inline-reason-choice]").forEach((choiceButton) => {
+                const isActive = (choiceButton.dataset.inlineReasonChoice || "") === (reasonValue || "");
+                choiceButton.classList.toggle("is-selected", isActive);
+                choiceButton.setAttribute("aria-pressed", isActive ? "true" : "false");
+            });
+        };
+
+        const setReasonVisibility = (wrap, selectNode, status) => {
+            if (!wrap) {
+                return;
+            }
+            const show = status === "not_attending";
+            wrap.hidden = !show;
+            if (!show && selectNode) {
+                selectNode.value = "";
+            }
+        };
+
+        const setOtherReasonVisibility = (noteInput, reasonValue) => {
+            if (!noteInput) {
+                return;
+            }
+            const show = reasonValue === "other";
+            noteInput.hidden = !show;
+            if (!show) {
+                noteInput.value = "";
+            }
+        };
+
+        const formatSummary = (summary) => {
+            if (!summary) {
+                return "-";
+            }
+            return `${summary.attending} attending, ${summary.maybe} maybe, ${summary.not_attending} not attending, ${summary.pending} pending`;
+        };
+
+        const applyAttendanceToModal = (payload) => {
+            if (attendanceSummaryNode) {
+                attendanceSummaryNode.textContent = formatSummary(payload.attendance_summary);
+            }
+            if (attendanceStatusNode) {
+                const status = payload.current_user_rsvp || "";
+                const reason = payload.current_user_not_attending_reason || "";
+                const reasonNote = payload.current_user_not_attending_reason_note || "";
+                const noteSuffix = status === "not_attending" && reason === "other" && reasonNote
+                    ? `: ${reasonNote}`
+                    : "";
+                const reasonSuffix = status === "not_attending" && reason ? ` (${prettyReason(reason)}${noteSuffix})` : "";
+                attendanceStatusNode.textContent = `${prettyRsvp(status)}${reasonSuffix}`;
+                setReasonVisibility(modalReasonWrap, modalReasonSelect, status);
+                if (modalReasonSelect) {
+                    modalReasonSelect.value = reason;
+                }
+                if (modalReasonNote) {
+                    modalReasonNote.value = reasonNote;
+                    setOtherReasonVisibility(modalReasonNote, reason);
+                }
+
+                applyRsvpButtonState({
+                    buttons: rsvpButtons,
+                    activeStatus: status,
+                    getButtonStatus: (button) => button.dataset.rsvpStatus,
+                });
+            }
+        };
+
+        const submitRsvp = ({ eventId, status, reason = "", reasonNote = "", feedbackNode, onSaved }) => {
+            const formData = new FormData();
+            formData.append("status", status);
+            if (reason) {
+                formData.append("not_attending_reason", reason);
+            }
+            if (reasonNote) {
+                formData.append("not_attending_reason_note", reasonNote);
+            }
+
+            return fetch(rsvpUrl(eventId), {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: formData,
+            })
+                .then(async (response) => {
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || "RSVP update failed");
+                    }
+                    return payload;
+                })
+                .then((payload) => {
+                    if (feedbackNode) {
+                        const reasonText = payload.status === "not_attending" && payload.not_attending_reason_label
+                            ? ` (${payload.not_attending_reason_label})`
+                            : "";
+                        feedbackNode.textContent = `Saved: ${prettyRsvp(payload.status)}${reasonText}.`;
+                    }
+                    if (typeof onSaved === "function") {
+                        onSaved(payload);
+                    }
+                    return payload;
+                })
+                .catch((error) => {
+                    if (feedbackNode) {
+                        feedbackNode.textContent = error.message;
+                    }
+                    throw error;
+                });
+        };
 
         const computeStatusFromBrowserClock = (item) => {
             const startRaw = item.dataset.startLocal;
@@ -299,6 +536,8 @@
                 return;
             }
 
+            currentEventId = trigger.dataset.eventId || null;
+
             const setText = (selector, value) => {
                 const node = eventModal.querySelector(selector);
                 if (node) {
@@ -315,10 +554,223 @@
             setText("[data-event-modal-location]", trigger.dataset.eventLocation || "-");
             setText("[data-event-modal-details]", trigger.dataset.eventDetails || "-");
             setText("[data-event-modal-type]", trigger.dataset.eventType || "Event");
+            setText("[data-event-modal-attendance-summary]", "Loading...");
+            setText("[data-event-modal-rsvp-status]", "Loading...");
+
+            if (rsvpFeedback) {
+                rsvpFeedback.textContent = "";
+            }
+            setReasonVisibility(modalReasonWrap, modalReasonSelect, "");
+            setOtherReasonVisibility(modalReasonNote, "");
+            applyRsvpButtonState({
+                buttons: rsvpButtons,
+                activeStatus: "",
+                getButtonStatus: (button) => button.dataset.rsvpStatus,
+            });
 
             eventModal.hidden = false;
             document.body.classList.add("modal-open");
+
+            if (!currentEventId) {
+                setText("[data-event-modal-attendance-summary]", "-");
+                setText("[data-event-modal-rsvp-status]", "-");
+                return;
+            }
+
+            fetch(detailUrl(currentEventId), { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then((response) => response.ok ? response.json() : Promise.reject(new Error("Unable to load event details")))
+                .then((payload) => {
+                    applyAttendanceToModal(payload);
+                })
+                .catch(() => {
+                    setText("[data-event-modal-attendance-summary]", "Unavailable");
+                    setText("[data-event-modal-rsvp-status]", "Unavailable");
+                });
         };
+
+        rsvpButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                if (!currentEventId) {
+                    return;
+                }
+
+                const status = button.dataset.rsvpStatus;
+                applyRsvpButtonState({
+                    buttons: rsvpButtons,
+                    activeStatus: status,
+                    getButtonStatus: (node) => node.dataset.rsvpStatus,
+                });
+                if (status === "not_attending" && modalReasonSelect && !modalReasonSelect.value) {
+                    setReasonVisibility(modalReasonWrap, modalReasonSelect, status);
+                    if (rsvpFeedback) {
+                        rsvpFeedback.textContent = "Please select a reason for not attending.";
+                    }
+                    modalReasonSelect.focus();
+                    return;
+                }
+
+                const modalReason = modalReasonSelect ? modalReasonSelect.value : "";
+                const modalReasonNoteValue = modalReasonNote ? modalReasonNote.value.trim() : "";
+                if (status !== "not_attending") {
+                    if (modalReasonSelect) {
+                        modalReasonSelect.value = "";
+                    }
+                    setOtherReasonVisibility(modalReasonNote, "");
+                }
+                if (status === "not_attending" && modalReason === "other" && !modalReasonNoteValue) {
+                    setReasonVisibility(modalReasonWrap, modalReasonSelect, status);
+                    setOtherReasonVisibility(modalReasonNote, modalReason);
+                    if (rsvpFeedback) {
+                        rsvpFeedback.textContent = "Please provide the other reason details.";
+                    }
+                    if (modalReasonNote) {
+                        modalReasonNote.focus();
+                    }
+                    return;
+                }
+
+                setReasonVisibility(modalReasonWrap, modalReasonSelect, status);
+                setOtherReasonVisibility(modalReasonNote, status === "not_attending" ? modalReason : "");
+
+                submitRsvp({
+                    eventId: currentEventId,
+                    status,
+                    reason: status === "not_attending" && modalReasonSelect ? modalReasonSelect.value : "",
+                    reasonNote: status === "not_attending" && modalReasonSelect && modalReasonSelect.value === "other" && modalReasonNote ? modalReasonNote.value.trim() : "",
+                    feedbackNode: rsvpFeedback,
+                    onSaved: (payload) => {
+                        if (attendanceSummaryNode) {
+                            attendanceSummaryNode.textContent = formatSummary(payload.summary);
+                        }
+                        if (attendanceStatusNode) {
+                            const reasonText = payload.status === "not_attending" && payload.not_attending_reason_label
+                                ? ` (${payload.not_attending_reason_label}${payload.not_attending_reason === "other" && payload.not_attending_reason_note ? `: ${payload.not_attending_reason_note}` : ""})`
+                                : "";
+                            attendanceStatusNode.textContent = `${prettyRsvp(payload.status)}${reasonText}`;
+                        }
+
+                        applyRsvpButtonState({
+                            buttons: rsvpButtons,
+                            activeStatus: payload.status,
+                            getButtonStatus: (node) => node.dataset.rsvpStatus,
+                        });
+                    },
+                }).catch(() => {});
+            });
+        });
+
+        if (modalReasonSelect) {
+            modalReasonSelect.addEventListener("change", () => {
+                setOtherReasonVisibility(modalReasonNote, modalReasonSelect.value || "");
+            });
+        }
+
+        inlineRsvpBlocks.forEach((block) => {
+            const eventId = block.dataset.eventId;
+            const currentStatus = block.dataset.currentRsvp || "";
+            const currentReason = block.dataset.currentReason || "";
+            const currentNote = block.dataset.currentNote || "";
+            const buttons = block.querySelectorAll("[data-inline-rsvp-status]");
+            const feedback = block.querySelector("[data-inline-rsvp-feedback]");
+            const reasonWrap = block.querySelector("[data-inline-reason-wrap]");
+            const reasonInput = block.querySelector("[data-inline-reason]");
+            const reasonNoteInput = block.querySelector("[data-inline-reason-note]");
+            const reasonChoiceButtons = block.querySelectorAll("[data-inline-reason-choice]");
+
+            applyReasonChoiceState(block, reasonInput, currentReason);
+            if (reasonNoteInput) {
+                reasonNoteInput.value = currentNote;
+            }
+            setReasonVisibility(reasonWrap, reasonInput, currentStatus);
+            setOtherReasonVisibility(reasonNoteInput, currentReason);
+            applyRsvpButtonState({
+                buttons,
+                activeStatus: currentStatus,
+                getButtonStatus: (node) => node.dataset.inlineRsvpStatus,
+            });
+
+            reasonChoiceButtons.forEach((choiceButton) => {
+                choiceButton.addEventListener("click", () => {
+                    const selectedReason = choiceButton.dataset.inlineReasonChoice || "";
+                    applyReasonChoiceState(block, reasonInput, selectedReason);
+                    setOtherReasonVisibility(reasonNoteInput, selectedReason);
+                    if (feedback && selectedReason) {
+                        feedback.textContent = `Reason selected: ${prettyReason(selectedReason)}.`;
+                    }
+                });
+            });
+
+            buttons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    if (!eventId) {
+                        return;
+                    }
+
+                    const status = button.dataset.inlineRsvpStatus;
+                    applyRsvpButtonState({
+                        buttons,
+                        activeStatus: status,
+                        getButtonStatus: (node) => node.dataset.inlineRsvpStatus,
+                    });
+                    if (status === "not_attending" && reasonInput && !reasonInput.value) {
+                        setReasonVisibility(reasonWrap, reasonInput, status);
+                        if (feedback) {
+                            feedback.textContent = "Select a reason before saving Not Attending.";
+                        }
+                        const firstReasonButton = block.querySelector("[data-inline-reason-choice]");
+                        if (firstReasonButton) {
+                            firstReasonButton.focus();
+                        }
+                        return;
+                    }
+
+                    const inlineReason = reasonInput ? reasonInput.value : "";
+                    const inlineReasonNote = reasonNoteInput ? reasonNoteInput.value.trim() : "";
+                    if (status !== "not_attending") {
+                        applyReasonChoiceState(block, reasonInput, "");
+                        setOtherReasonVisibility(reasonNoteInput, "");
+                    }
+                    if (status === "not_attending" && inlineReason === "other" && !inlineReasonNote) {
+                        setReasonVisibility(reasonWrap, reasonInput, status);
+                        setOtherReasonVisibility(reasonNoteInput, inlineReason);
+                        if (feedback) {
+                            feedback.textContent = "Please provide the other reason details.";
+                        }
+                        if (reasonNoteInput) {
+                            reasonNoteInput.focus();
+                        }
+                        return;
+                    }
+
+                    setReasonVisibility(reasonWrap, reasonInput, status);
+                    setOtherReasonVisibility(reasonNoteInput, status === "not_attending" ? inlineReason : "");
+
+                    submitRsvp({
+                        eventId,
+                        status,
+                        reason: status === "not_attending" && reasonInput ? reasonInput.value : "",
+                        reasonNote: status === "not_attending" && reasonInput && reasonInput.value === "other" && reasonNoteInput ? reasonNoteInput.value.trim() : "",
+                        feedbackNode: feedback,
+                        onSaved: (payload) => {
+                            block.dataset.currentRsvp = payload.status;
+                            block.dataset.currentReason = payload.not_attending_reason || "";
+                            block.dataset.currentNote = payload.not_attending_reason_note || "";
+                            applyReasonChoiceState(block, reasonInput, payload.not_attending_reason || "");
+                            if (reasonNoteInput) {
+                                reasonNoteInput.value = payload.not_attending_reason_note || "";
+                            }
+                            setOtherReasonVisibility(reasonNoteInput, payload.not_attending_reason || "");
+
+                            applyRsvpButtonState({
+                                buttons,
+                                activeStatus: payload.status,
+                                getButtonStatus: (node) => node.dataset.inlineRsvpStatus,
+                            });
+                        },
+                    }).catch(() => {});
+                });
+            });
+        });
 
         detailTriggers.forEach((trigger) => {
             trigger.addEventListener("click", (event) => {

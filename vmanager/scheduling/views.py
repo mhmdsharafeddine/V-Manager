@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from accounts.models import AccountProfile
 from team_management.models import TeamMembership
 
-from .models import ScheduledEvent
+from .models import EventAttendance, ScheduledEvent
 from .notifications import (
     build_user_notifications_context,
     delete_announcement_notifications,
@@ -57,6 +57,76 @@ AUDIENCE_LABELS = {
 def _resolve_team_for_user(user):
     membership = TeamMembership.objects.select_related("team").filter(user=user, is_active=True).first()
     return membership.team if membership else None
+
+
+def _user_role(user):
+    return getattr(getattr(user, "profile", None), "role", None)
+
+
+def _is_player(user):
+    return _user_role(user) == AccountProfile.ROLE_PLAYER
+
+
+def _is_manager(user):
+    return _user_role(user) == AccountProfile.ROLE_MANAGER
+
+
+def _is_coach(user):
+    return _user_role(user) == AccountProfile.ROLE_COACH
+
+
+def _is_coach_or_manager(user):
+    return _user_role(user) in {AccountProfile.ROLE_COACH, AccountProfile.ROLE_MANAGER}
+
+
+def _team_player_count(team):
+    if team is None:
+        return 0
+    return TeamMembership.objects.filter(
+        team=team,
+        status=TeamMembership.STATUS_APPROVED,
+        is_active=True,
+        user__profile__role=AccountProfile.ROLE_PLAYER,
+    ).count()
+
+
+def _attendance_summary_for_event(event):
+    counts = {
+        EventAttendance.STATUS_ATTENDING: 0,
+        EventAttendance.STATUS_MAYBE: 0,
+        EventAttendance.STATUS_NOT_ATTENDING: 0,
+    }
+    for row in (
+        EventAttendance.objects.filter(event=event)
+        .values("status")
+        .annotate(total=Count("id"))
+    ):
+        counts[row["status"]] = row["total"]
+
+    total_players = _team_player_count(event.team)
+    responded = sum(counts.values())
+    pending = max(total_players - responded, 0)
+    return {
+        "total_players": total_players,
+        "responded": responded,
+        "pending": pending,
+        "attending": counts[EventAttendance.STATUS_ATTENDING],
+        "maybe": counts[EventAttendance.STATUS_MAYBE],
+        "not_attending": counts[EventAttendance.STATUS_NOT_ATTENDING],
+    }
+
+
+def _attendance_badge_from_rate(rate):
+    if rate >= 85:
+        return "high"
+    if rate >= 65:
+        return "medium"
+    return "low"
+
+
+def _attendance_reason_label(reason):
+    reason_labels = dict(EventAttendance.NOT_ATTENDING_REASON_CHOICES)
+    return reason_labels.get(reason or "", "")
 
 
 def _event_queryset_for_user(user):
@@ -346,10 +416,24 @@ def _build_calendar_context(user, ym_value=None):
             )
         calendar_weeks.append(week_cells)
 
+    player_attendance_map = {}
+    if _is_player(user):
+        player_attendance_map = {
+            row.event_id: row
+            for row in EventAttendance.objects.filter(
+                event__in=visible_month_events,
+                player=user,
+            )
+        }
+
     month_events = []
     for event in visible_month_events:
         serialized = _serialize_event(event)
         serialized["can_manage"] = _can_manage_event(user, event)
+        attendance = player_attendance_map.get(event.id)
+        serialized["current_user_rsvp"] = attendance.status if attendance else ""
+        serialized["current_user_not_attending_reason"] = attendance.not_attending_reason if attendance else ""
+        serialized["current_user_not_attending_reason_note"] = attendance.not_attending_reason_note if attendance else ""
         month_events.append(serialized)
 
     prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
@@ -474,7 +558,27 @@ def calendar_view(request):
     context = _build_calendar_context(request.user, request.GET.get("ym"))
     context.update(build_user_notifications_context(request.user))
     context["can_create_events"] = _can_user_create_events(request.user)
+    context["is_player"] = _is_player(request.user)
+    context["can_view_attendance_dashboard"] = _is_manager(request.user)
+    context["can_view_coach_upcoming"] = _is_coach_or_manager(request.user)
+    context["not_attending_reason_options"] = [
+        {"value": value, "label": label}
+        for value, label in EventAttendance.NOT_ATTENDING_REASON_CHOICES
+    ]
     return render(request, "scheduling/calendar.html", context)
+
+
+@login_required
+def attendance_dashboard_view(request):
+    if not _is_manager(request.user):
+        messages.error(request, "Only team managers can access attendance dashboard.")
+        return redirect("scheduling:home")
+
+    context = {
+        "selected_ym": request.GET.get("ym", ""),
+    }
+    context.update(build_user_notifications_context(request.user))
+    return render(request, "scheduling/attendance_dashboard.html", context)
 
 
 @login_required
@@ -717,9 +821,276 @@ def event_detail_view(request, event_id):
         # Serialize event data
         serialized = _serialize_event(event)
         serialized["created_by"] = event.created_by.get_full_name() or event.created_by.username
+        serialized["attendance_summary"] = _attendance_summary_for_event(event)
+
+        if _is_player(request.user):
+            attendance = EventAttendance.objects.filter(event=event, player=request.user).first()
+            serialized["current_user_rsvp"] = attendance.status if attendance else ""
+            serialized["current_user_not_attending_reason"] = attendance.not_attending_reason if attendance else ""
+            serialized["current_user_not_attending_reason_note"] = attendance.not_attending_reason_note if attendance else ""
+            serialized["current_user_not_attending_reason_label"] = _attendance_reason_label(
+                attendance.not_attending_reason if attendance else ""
+            )
+        else:
+            serialized["current_user_rsvp"] = ""
+            serialized["current_user_not_attending_reason"] = ""
+            serialized["current_user_not_attending_reason_note"] = ""
+            serialized["current_user_not_attending_reason_label"] = ""
         
         return JsonResponse(serialized)
     except Exception as e:
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
+
+
+@login_required
+@require_POST
+def player_event_rsvp_view(request, event_id):
+    event = get_object_or_404(ScheduledEvent, id=event_id)
+
+    if not _is_event_visible_to_user(event, request.user):
+        return JsonResponse({"error": "You don't have access to this event"}, status=403)
+
+    if not _is_player(request.user):
+        return JsonResponse({"error": "Only players can submit attendance RSVP."}, status=403)
+
+    membership = TeamMembership.objects.filter(
+        user=request.user,
+        team=event.team,
+        status=TeamMembership.STATUS_APPROVED,
+        is_active=True,
+    ).first()
+    if event.team is None or membership is None:
+        return JsonResponse({"error": "You are not an active player in this event's team."}, status=403)
+
+    status = (request.POST.get("status") or "").strip().lower()
+    valid_statuses = {
+        EventAttendance.STATUS_ATTENDING,
+        EventAttendance.STATUS_MAYBE,
+        EventAttendance.STATUS_NOT_ATTENDING,
+    }
+    if status not in valid_statuses:
+        return JsonResponse({"error": "Invalid RSVP status."}, status=400)
+
+    reason = (request.POST.get("not_attending_reason") or "").strip().lower()
+    reason_note = (request.POST.get("not_attending_reason_note") or "").strip()
+    valid_reasons = {value for value, _ in EventAttendance.NOT_ATTENDING_REASON_CHOICES}
+    if status == EventAttendance.STATUS_NOT_ATTENDING:
+        if reason not in valid_reasons:
+            return JsonResponse(
+                {
+                    "error": "Please select a not attending reason.",
+                    "valid_reasons": [
+                        {"value": value, "label": label}
+                        for value, label in EventAttendance.NOT_ATTENDING_REASON_CHOICES
+                    ],
+                },
+                status=400,
+            )
+        if reason == EventAttendance.REASON_OTHER and not reason_note:
+            return JsonResponse({"error": "Please provide the other reason details."}, status=400)
+    else:
+        reason = ""
+        reason_note = ""
+
+    if reason != EventAttendance.REASON_OTHER:
+        reason_note = ""
+
+    attendance, _ = EventAttendance.objects.update_or_create(
+        event=event,
+        player=request.user,
+        defaults={
+            "status": status,
+            "not_attending_reason": reason,
+            "not_attending_reason_note": reason_note,
+        },
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "event_id": event.id,
+            "status": attendance.status,
+            "not_attending_reason": attendance.not_attending_reason,
+            "not_attending_reason_label": _attendance_reason_label(attendance.not_attending_reason),
+            "not_attending_reason_note": attendance.not_attending_reason_note,
+            "summary": _attendance_summary_for_event(event),
+        }
+    )
+
+
+@login_required
+def manager_attendance_stats_view(request):
+    if not _is_manager(request.user):
+        return JsonResponse({"error": "Only managers can access attendance stats."}, status=403)
+
+    team = _resolve_team_for_user(request.user)
+    if team is None:
+        return JsonResponse({"players": [], "meta": {"total_events": 0, "returned": 0}})
+
+    event_qs = ScheduledEvent.objects.filter(team=team, status=ScheduledEvent.STATUS_SCHEDULED)
+    event_type = (request.GET.get("event_type") or "").strip().lower()
+    if event_type in EVENT_TYPE_MAP:
+        event_qs = event_qs.filter(event_type=EVENT_TYPE_MAP[event_type])
+
+    total_events = event_qs.count()
+    memberships = list(
+        TeamMembership.objects.select_related("user")
+        .filter(
+            team=team,
+            status=TeamMembership.STATUS_APPROVED,
+            is_active=True,
+            user__profile__role=AccountProfile.ROLE_PLAYER,
+        )
+        .order_by("user__first_name", "user__last_name", "user__email")
+    )
+    player_ids = [membership.user_id for membership in memberships]
+
+    attendance_counts = {}
+    for row in (
+        EventAttendance.objects.filter(event__in=event_qs, player_id__in=player_ids)
+        .values("player_id", "status")
+        .annotate(total=Count("id"))
+    ):
+        player_bucket = attendance_counts.setdefault(row["player_id"], {
+            EventAttendance.STATUS_ATTENDING: 0,
+            EventAttendance.STATUS_MAYBE: 0,
+            EventAttendance.STATUS_NOT_ATTENDING: 0,
+        })
+        player_bucket[row["status"]] = row["total"]
+
+    rows = []
+    for membership in memberships:
+        user = membership.user
+        counts = attendance_counts.get(
+            user.id,
+            {
+                EventAttendance.STATUS_ATTENDING: 0,
+                EventAttendance.STATUS_MAYBE: 0,
+                EventAttendance.STATUS_NOT_ATTENDING: 0,
+            },
+        )
+        responded = sum(counts.values())
+        pending = max(total_events - responded, 0)
+        attendance_rate = round((counts[EventAttendance.STATUS_ATTENDING] / max(total_events, 1)) * 100, 1) if total_events else 0.0
+        response_rate = round((responded / max(total_events, 1)) * 100, 1) if total_events else 0.0
+        rows.append(
+            {
+                "player_id": user.id,
+                "name": user.get_full_name() or user.email,
+                "position": getattr(getattr(user, "profile", None), "position", "") or "Player",
+                "attending": counts[EventAttendance.STATUS_ATTENDING],
+                "maybe": counts[EventAttendance.STATUS_MAYBE],
+                "not_attending": counts[EventAttendance.STATUS_NOT_ATTENDING],
+                "responded": responded,
+                "pending": pending,
+                "attendance_rate": attendance_rate,
+                "response_rate": response_rate,
+                "status_bucket": _attendance_badge_from_rate(attendance_rate),
+            }
+        )
+
+    query = (request.GET.get("q") or "").strip().lower()
+    status_filter = (request.GET.get("status") or "all").strip().lower()
+    min_rate = request.GET.get("min_rate")
+    max_rate = request.GET.get("max_rate")
+
+    if query:
+        rows = [row for row in rows if query in row["name"].lower() or query in row["position"].lower()]
+
+    if status_filter in {"high", "medium", "low"}:
+        rows = [row for row in rows if row["status_bucket"] == status_filter]
+
+    try:
+        if min_rate is not None and str(min_rate).strip() != "":
+            min_rate_val = float(min_rate)
+            rows = [row for row in rows if row["attendance_rate"] >= min_rate_val]
+    except ValueError:
+        pass
+
+    try:
+        if max_rate is not None and str(max_rate).strip() != "":
+            max_rate_val = float(max_rate)
+            rows = [row for row in rows if row["attendance_rate"] <= max_rate_val]
+    except ValueError:
+        pass
+
+    sort_key = (request.GET.get("sort") or "attendance_rate").strip()
+    direction = (request.GET.get("dir") or "desc").strip().lower()
+    reverse = direction != "asc"
+    allowed_sort_keys = {
+        "name": lambda row: row["name"].lower(),
+        "position": lambda row: row["position"].lower(),
+        "attendance_rate": lambda row: row["attendance_rate"],
+        "response_rate": lambda row: row["response_rate"],
+        "attending": lambda row: row["attending"],
+        "responded": lambda row: row["responded"],
+        "pending": lambda row: row["pending"],
+    }
+    rows.sort(key=allowed_sort_keys.get(sort_key, allowed_sort_keys["attendance_rate"]), reverse=reverse)
+
+    return JsonResponse(
+        {
+            "players": rows,
+            "meta": {
+                "team": team.name,
+                "total_events": total_events,
+                "returned": len(rows),
+                "sort": sort_key,
+                "dir": "desc" if reverse else "asc",
+                "filters": {
+                    "q": query,
+                    "status": status_filter,
+                    "min_rate": min_rate,
+                    "max_rate": max_rate,
+                    "event_type": event_type,
+                },
+            },
+        }
+    )
+
+
+@login_required
+def coach_upcoming_events_view(request):
+    if not _is_coach_or_manager(request.user):
+        return JsonResponse({"error": "Only coaches and managers can access upcoming events feed."}, status=403)
+
+    team = _resolve_team_for_user(request.user)
+    if team is None:
+        return JsonResponse({"events": [], "count": 0})
+
+    try:
+        limit = int((request.GET.get("limit") or "5").strip())
+    except ValueError:
+        limit = 5
+    limit = max(1, min(20, limit))
+
+    now = timezone.now()
+    events = (
+        ScheduledEvent.objects.filter(
+            team=team,
+            status=ScheduledEvent.STATUS_SCHEDULED,
+            scheduled_at__gte=now,
+        )
+        .order_by("scheduled_at")[:limit]
+    )
+
+    payload = []
+    for event in events:
+        serialized = _serialize_event(event)
+        payload.append(
+            {
+                "id": serialized["id"],
+                "title": serialized["title"],
+                "when": serialized["when"],
+                "start_time": serialized["start_time"],
+                "end_time": serialized["end_time"],
+                "location": serialized["location"],
+                "event_type": serialized["event_type"],
+                "badge": serialized["badge"],
+                "attendees_count": serialized["attendees_count"],
+            }
+        )
+
+    return JsonResponse({"events": payload, "count": len(payload), "limit": limit})

@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Attendance Tracker | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'scheduling/scheduling.css' %}?v=12">
+{% endblock %}
+
+{% block body_class %}schedule-page schedule-attendance-page{% endblock %}
+
+{% block content %}
+<main class="schedule-shell">
+    {% if messages %}
+        <div class="toast-stack" aria-live="polite" aria-atomic="true">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="container schedule-heading schedule-heading-row">
+        <div>
+            <h1>Attendance Tracker</h1>
+            <p>Monitor per-player event RSVP and attendance trends with filters and sortable stats.</p>
+        </div>
+        <div class="schedule-heading-actions">
+            <a class="btn btn-secondary btn-link" href="{% url 'scheduling:home' %}">Back to Calendar</a>
+        </div>
+    </section>
+
+    <section class="container schedule-card attendance-dashboard-panel">
+        <div class="panel-header-row panel-header-row-spaced">
+            <h2>Player Attendance Stats</h2>
+            <div class="attendance-meta" data-attendance-meta>Loading...</div>
+        </div>
+
+        <div class="attendance-filters">
+            <label>
+                Search
+                <input type="text" id="attendance-search" placeholder="Player name or position">
+            </label>
+            <label>
+                Status
+                <select id="attendance-status">
+                    <option value="all">All</option>
+                    <option value="high">High (>=85%)</option>
+                    <option value="medium">Medium (65-84%)</option>
+                    <option value="low">Low (<65%)</option>
+                </select>
+            </label>
+            <label>
+                Min Rate
+                <input type="number" id="attendance-min-rate" min="0" max="100" step="1" placeholder="0">
+            </label>
+            <label>
+                Max Rate
+                <input type="number" id="attendance-max-rate" min="0" max="100" step="1" placeholder="100">
+            </label>
+            <label>
+                Event Type
+                <select id="attendance-event-type">
+                    <option value="">All types</option>
+                    <option value="practice">Practice</option>
+                    <option value="match">Match</option>
+                    <option value="tournament">Tournament</option>
+                    <option value="training">Training</option>
+                    <option value="other">Other</option>
+                </select>
+            </label>
+            <button class="btn btn-secondary" type="button" id="attendance-reset">Reset</button>
+        </div>
+
+        <div class="attendance-table-wrap">
+            <table class="attendance-table">
+                <thead>
+                    <tr>
+                        <th><button type="button" data-sort="name">Player</button></th>
+                        <th><button type="button" data-sort="position">Position</button></th>
+                        <th><button type="button" data-sort="attendance_rate">Attendance %</button></th>
+                        <th><button type="button" data-sort="response_rate">Response %</button></th>
+                        <th><button type="button" data-sort="attending">Attending</button></th>
+                        <th><button type="button" data-sort="responded">Responded</button></th>
+                        <th><button type="button" data-sort="pending">Pending</button></th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-table-body">
+                    <tr><td colspan="8">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const endpoint = "{% url 'scheduling:attendance_stats_api' %}";
+    const tableBody = document.getElementById("attendance-table-body");
+    const metaNode = document.querySelector("[data-attendance-meta]");
+
+    const state = {
+        q: "",
+        status: "all",
+        min_rate: "",
+        max_rate: "",
+        event_type: "",
+        sort: "attendance_rate",
+        dir: "desc",
+    };
+
+    const controls = {
+        search: document.getElementById("attendance-search"),
+        status: document.getElementById("attendance-status"),
+        minRate: document.getElementById("attendance-min-rate"),
+        maxRate: document.getElementById("attendance-max-rate"),
+        eventType: document.getElementById("attendance-event-type"),
+        reset: document.getElementById("attendance-reset"),
+        sortButtons: document.querySelectorAll("[data-sort]"),
+    };
+
+    const badgeText = {
+        high: "High",
+        medium: "Medium",
+        low: "Low",
+    };
+
+    const updateSortLabels = () => {
+        controls.sortButtons.forEach((button) => {
+            const key = button.dataset.sort;
+            const active = key === state.sort;
+            button.classList.toggle("is-active-sort", active);
+            button.textContent = button.textContent.replace(/\s*[▲▼]$/, "");
+            if (active) {
+                button.textContent += state.dir === "asc" ? " ▲" : " ▼";
+            }
+        });
+    };
+
+    const buildQuery = () => {
+        const params = new URLSearchParams();
+        Object.entries(state).forEach(([key, value]) => {
+            if (value !== "" && value !== null && value !== undefined) {
+                params.append(key, value);
+            }
+        });
+        return params.toString();
+    };
+
+    const renderRows = (rows) => {
+        if (!rows.length) {
+            tableBody.innerHTML = "<tr><td colspan=\"8\">No players match the current filters.</td></tr>";
+            return;
+        }
+
+        tableBody.innerHTML = rows.map((row) => `
+            <tr>
+                <td>${row.name}</td>
+                <td>${row.position}</td>
+                <td>${row.attendance_rate}%</td>
+                <td>${row.response_rate}%</td>
+                <td>${row.attending}</td>
+                <td>${row.responded}</td>
+                <td>${row.pending}</td>
+                <td><span class="attendance-badge attendance-${row.status_bucket}">${badgeText[row.status_bucket] || row.status_bucket}</span></td>
+            </tr>
+        `).join("");
+    };
+
+    const loadStats = async () => {
+        tableBody.innerHTML = "<tr><td colspan=\"8\">Loading...</td></tr>";
+        try {
+            const response = await fetch(`${endpoint}?${buildQuery()}`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.error || "Unable to load attendance stats");
+            }
+
+            renderRows(payload.players || []);
+            const meta = payload.meta || {};
+            metaNode.textContent = `${meta.team || "Team"} • ${meta.total_events || 0} events • ${meta.returned || 0} players`;
+            updateSortLabels();
+        } catch (error) {
+            tableBody.innerHTML = `<tr><td colspan=\"8\">${error.message}</td></tr>`;
+            metaNode.textContent = "Unable to load attendance stats";
+        }
+    };
+
+    controls.search.addEventListener("input", () => {
+        state.q = controls.search.value.trim();
+        loadStats();
+    });
+
+    controls.status.addEventListener("change", () => {
+        state.status = controls.status.value;
+        loadStats();
+    });
+
+    controls.minRate.addEventListener("change", () => {
+        state.min_rate = controls.minRate.value.trim();
+        loadStats();
+    });
+
+    controls.maxRate.addEventListener("change", () => {
+        state.max_rate = controls.maxRate.value.trim();
+        loadStats();
+    });
+
+    controls.eventType.addEventListener("change", () => {
+        state.event_type = controls.eventType.value;
+        loadStats();
+    });
+
+    controls.reset.addEventListener("click", () => {
+        controls.search.value = "";
+        controls.status.value = "all";
+        controls.minRate.value = "";
+        controls.maxRate.value = "";
+        controls.eventType.value = "";
+        state.q = "";
+        state.status = "all";
+        state.min_rate = "";
+        state.max_rate = "";
+        state.event_type = "";
+        state.sort = "attendance_rate";
+        state.dir = "desc";
+        loadStats();
+    });
+
+    controls.sortButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const key = button.dataset.sort;
+            if (state.sort === key) {
+                state.dir = state.dir === "asc" ? "desc" : "asc";
+            } else {
+                state.sort = key;
+                state.dir = key === "name" || key === "position" ? "asc" : "desc";
+            }
+            loadStats();
+        });
+    });
+
+    loadStats();
+})();
+</script>
+{% endblock %}

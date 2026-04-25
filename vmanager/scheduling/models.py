@@ -108,3 +108,47 @@ class EventNotificationRead(models.Model):
 
 	def __str__(self):
 		return f"{self.user_id}:{self.event_id}"
+
+
+class EventAttendance(models.Model):
+	STATUS_ATTENDING = "attending"
+	STATUS_MAYBE = "maybe"
+	STATUS_NOT_ATTENDING = "not_attending"
+	STATUS_CHOICES = [
+		(STATUS_ATTENDING, "Attending"),
+		(STATUS_MAYBE, "Maybe"),
+		(STATUS_NOT_ATTENDING, "Not Attending"),
+	]
+
+	REASON_ABSENT = "absent"
+	REASON_INJURED = "injured"
+	REASON_OTHER = "other"
+	NOT_ATTENDING_REASON_CHOICES = [
+		(REASON_INJURED, "Injured"),
+		(REASON_OTHER, "Other"),
+	]
+
+	event = models.ForeignKey(
+		ScheduledEvent,
+		on_delete=models.CASCADE,
+		related_name="attendance_records",
+	)
+	player = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="event_attendance_records",
+	)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ATTENDING)
+	not_attending_reason = models.CharField(max_length=30, choices=NOT_ATTENDING_REASON_CHOICES, blank=True)
+	not_attending_reason_note = models.CharField(max_length=255, blank=True)
+	responded_at = models.DateTimeField(auto_now=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ["-responded_at", "-id"]
+		constraints = [
+			models.UniqueConstraint(fields=["event", "player"], name="uniq_event_attendance_player"),
+		]
+
+	def __str__(self):
+		return f"event={self.event_id} player={self.player_id} status={self.status}"
