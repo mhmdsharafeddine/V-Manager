@@ -81,3 +81,22 @@ def send_membership_rejection_email(user, team_name, rejection_reason=""):
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+
+def send_invited_account_email(*, user, temporary_password, team_name, inviter_name):
+    message = render_to_string(
+        "accounts/emails/invited_account.txt",
+        {
+            "first_name": user.first_name or user.username,
+            "temporary_password": temporary_password,
+            "team_name": team_name,
+            "inviter_name": inviter_name,
+        },
+    )
+    send_mail(
+        subject="Your V-Manager account is ready",
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )

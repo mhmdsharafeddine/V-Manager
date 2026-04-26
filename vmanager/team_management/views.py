@@ -1,20 +1,25 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from accounts.email_utils import send_membership_rejection_email
+from accounts.email_utils import send_invited_account_email, send_membership_rejection_email
 from accounts.models import AccountProfile
 
 from .access import can_access_team_features, get_team_role, is_inactive_team_member
-from .forms import TeamMemberForm
+from .forms import RosterAccountInviteForm, TeamMemberForm
 from .models import Team, TeamMembership
 
 MANAGE_ROSTER_ROLES = {
     AccountProfile.ROLE_COACH,
+    AccountProfile.ROLE_STAFF,
+    AccountProfile.ROLE_MANAGER,
+}
+CREATE_ROSTER_ROLES = {
     AccountProfile.ROLE_STAFF,
     AccountProfile.ROLE_MANAGER,
 }
@@ -89,6 +94,11 @@ def _member_feedback_label(membership):
 def _can_manage_roster(user):
     team = _resolve_team_for_user(user)
     return can_access_team_features(user) and _get_role(user) in MANAGE_ROSTER_ROLES and team is not None
+
+
+def _can_invite_members(user):
+    team = _resolve_team_for_user(user)
+    return can_access_team_features(user) and _get_role(user) in CREATE_ROSTER_ROLES and team is not None
 
 
 def _can_edit_member(user, membership):
@@ -387,9 +397,11 @@ def roster_view(request):
 
     team = _resolve_team_for_user(request.user)
     can_manage = request.user.is_authenticated and _get_role(request.user) in MANAGE_ROSTER_ROLES and team is not None
+    can_invite = request.user.is_authenticated and _get_role(request.user) in CREATE_ROSTER_ROLES and team is not None
     context = {
         "team": team,
         "can_manage": can_manage,
+        "can_invite": can_invite,
         "members": [],
         "pending_requests": [],
         "summary_cards": [],
@@ -407,15 +419,77 @@ def roster_view(request):
         messages.info(request, "You are not assigned to a team yet.")
     else:
         context.update(_base_team_context(request=request, team=team))
+        context["can_invite"] = can_invite
     return render(request, "team_management/roster.html", context)
+
+
+@login_required
+def invite_member_view(request):
+    if is_inactive_team_member(request.user):
+        return _inactive_access_response(request)
+    if _get_role(request.user) not in CREATE_ROSTER_ROLES:
+        messages.error(request, "Only staff and managers can create roster accounts.")
+        return _access_denied_redirect(request.user)
+
+    team = _resolve_team_for_user(request.user)
+    if team is None:
+        messages.error(request, "You must belong to a team before you can create roster accounts.")
+        return _access_denied_redirect(request.user)
+
+    form = RosterAccountInviteForm(
+        request.POST or None,
+        request.FILES or None,
+        actor=request.user,
+        team=team,
+        prefix="invite",
+    )
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                membership, temporary_password = form.save(team=team, added_by=request.user)
+                send_invited_account_email(
+                    user=membership.user,
+                    temporary_password=temporary_password,
+                    team_name=team.name,
+                    inviter_name=request.user.get_full_name() or request.user.email,
+                )
+        except ValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                for field_name, field_errors in exc.message_dict.items():
+                    for error in field_errors:
+                        form.add_error(field_name if field_name in form.fields else None, error)
+            else:
+                for error in exc.messages:
+                    form.add_error(None, error)
+        except Exception as exc:
+            form.add_error(None, f"We could not send the invite email right now. {exc}")
+        else:
+            messages.success(
+                request,
+                f"{membership.user.get_full_name() or membership.user.email} was added to the roster and emailed a temporary password.",
+            )
+            return redirect("team_management:roster")
+
+    context = _base_team_context(request=request, team=team)
+    context.update(
+        {
+            "form": form,
+            "page_title": "Create Roster Account",
+            "page_description": "Create player, parent, coach, and staff accounts for your team from one focused workspace.",
+            "submit_label": "Create Account & Send Email",
+            "mode": "invite",
+            "can_manage": True,
+        }
+    )
+    return render(request, "team_management/invite_member.html", context)
 
 
 @login_required
 def add_member_view(request):
     if is_inactive_team_member(request.user):
         return _inactive_access_response(request)
-    if _get_role(request.user) not in MANAGE_ROSTER_ROLES:
-        messages.error(request, "Only coaches, staff, and managers can manage the roster.")
+    if _get_role(request.user) not in CREATE_ROSTER_ROLES:
+        messages.error(request, "Only staff and managers can add roster members.")
         return _access_denied_redirect(request.user)
 
     team = _resolve_team_for_user(request.user)
@@ -423,7 +497,12 @@ def add_member_view(request):
         messages.error(request, "You must belong to a team before you can add members to its roster.")
         return _access_denied_redirect(request.user)
 
-    form = TeamMemberForm(request.POST or None, request.FILES or None, team=team)
+    form = TeamMemberForm(
+        request.POST or None,
+        request.FILES or None,
+        team=team,
+        actor_role=_get_role(request.user),
+    )
     if request.method == "POST" and form.is_valid():
         membership = form.save(team=team, added_by=request.user)
         messages.success(request, f"{_member_feedback_label(membership)} added.")

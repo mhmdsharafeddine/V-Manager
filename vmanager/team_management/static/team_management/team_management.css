@@ -606,6 +606,46 @@
     padding: 24px 26px 28px;
 }
 
+.roster-invite-card {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 24px;
+    background:
+        linear-gradient(135deg, rgba(213, 247, 252, 0.72), rgba(255, 255, 255, 0.97) 40%, rgba(255, 247, 228, 0.92));
+}
+
+.roster-invite-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.roster-invite-head > div:first-child {
+    display: grid;
+    gap: 8px;
+}
+
+.roster-invite-banner {
+    flex: 0 1 360px;
+    margin-bottom: 0;
+}
+
+.roster-invite-form {
+    gap: 18px;
+}
+
+.roster-invite-actions {
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.roster-invite-actions .team-field-hint {
+    flex: 1 1 320px;
+    max-width: 720px;
+}
+
 .member-side-card {
     padding: 20px 18px;
     background: linear-gradient(180deg, rgba(211, 250, 251, 0.94), rgba(255, 250, 230, 0.9));
@@ -998,5 +1038,9 @@
 
     .roster-search {
         width: 100%;
+    }
+
+    .roster-invite-head {
+        flex-direction: column;
     }
 }

@@ -96,7 +96,11 @@
                         <div class="feature-card-body">
                             <h3>Match Readiness Score</h3>
                             <p>An ML-based score that predicts team readiness using fitness, injury, and performance data.</p>
-                            <a class="button button-primary button-block" href="{% url 'match_readiness' %}">View Feature</a>
+                            {% if request.user.is_authenticated and not can_view_match_readiness_nav %}
+                                <span class="button button-primary button-block button-disabled" aria-disabled="true">Restricted</span>
+                            {% else %}
+                                <a class="button button-primary button-block" href="{% url 'match_readiness' %}">View Feature</a>
+                            {% endif %}
                         </div>
                     </article>
 
@@ -106,7 +110,11 @@
                         <div class="feature-card-body">
                             <h3>AI Evolution Hub</h3>
                             <p>Track player growth and uncover personalized improvement paths with clear analytics.</p>
-                            <a class="button button-primary button-block" href="{% url 'ai_hub_home' %}">View Feature</a>
+                            {% if request.user.is_authenticated and not can_view_ai_hub_nav %}
+                                <span class="button button-primary button-block button-disabled" aria-disabled="true">Restricted</span>
+                            {% else %}
+                                <a class="button button-primary button-block" href="{% url 'ai_hub_home' %}">View Feature</a>
+                            {% endif %}
                         </div>
                     </article>
 
@@ -168,76 +176,6 @@
                             <p>Regular updates and thoughtful new features shaped by the volleyball community.</p>
                         </article>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="section pricing-section section-pattern" id="pricing">
-            <div class="container">
-                <div class="section-heading">
-                    <h2>Choose the Right Plan for Your Club</h2>
-                    <p>Flexible pricing options to fit clubs of all sizes. Start free, upgrade anytime.</p>
-                </div>
-
-                <div class="pricing-grid">
-                    <article class="pricing-card">
-                        <div class="pricing-top pricing-top-starter">
-                            <p class="plan-name">Starter</p>
-                            <span class="plan-label">Perfect for small clubs</span>
-                        </div>
-                        <div class="pricing-body">
-                            <div class="price-line">
-                                <span class="price">$49</span>
-                                <span class="price-note">/month</span>
-                            </div>
-                            <ul>
-                                <li>Up to 50 members</li>
-                                <li>Basic scheduling</li>
-                                <li>Team management</li>
-                            </ul>
-                            <a class="button button-primary button-block" href="#contact">Get Started</a>
-                        </div>
-                    </article>
-
-                    <article class="pricing-card pricing-card-featured">
-                        <div class="pricing-top pricing-top-pro">
-                            <p class="plan-name">Professional</p>
-                            <span class="plan-label">For growing clubs</span>
-                        </div>
-                        <div class="pricing-body">
-                            <div class="price-line">
-                                <span class="price">$99</span>
-                                <span class="price-note">/month</span>
-                            </div>
-                            <ul>
-                                <li>Up to 200 members</li>
-                                <li>Performance analytics</li>
-                                <li>Advanced scheduling</li>
-                                <li>Priority support</li>
-                                <li>Custom branding</li>
-                            </ul>
-                            <a class="button button-accent button-block" href="#contact">Get Started</a>
-                        </div>
-                    </article>
-
-                    <article class="pricing-card">
-                        <div class="pricing-top pricing-top-enterprise">
-                            <p class="plan-name">Enterprise</p>
-                            <span class="plan-label">For large organizations</span>
-                        </div>
-                        <div class="pricing-body">
-                            <div class="price-line">
-                                <span class="price">Custom</span>
-                            </div>
-                            <ul>
-                                <li>Unlimited members</li>
-                                <li>Advanced analytics</li>
-                                <li>Dedicated support</li>
-                                <li>Custom integrations</li>
-                            </ul>
-                            <a class="button button-primary button-block" href="#contact">Contact Sales</a>
-                        </div>
-                    </article>
                 </div>
             </div>
         </section>

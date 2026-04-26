@@ -4,7 +4,7 @@
 {% block title %}Team Roster | V-Manager{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=13">
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=14">
 {% endblock %}
 
 {% block body_class %}team-page{% endblock %}
@@ -83,8 +83,10 @@
                             <input type="hidden" name="member_type" value="{{ member_type_filter }}">
                         </form>
                         {% if can_manage %}
-                            <a href="{% url 'team_management:roster' %}" class="team-primary-button team-primary-button-neutral" title="Refresh roster">↻ Refresh</a>
-                            <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Member</a>
+                            <a href="{% url 'team_management:roster' %}" class="team-primary-button team-primary-button-neutral" title="Refresh roster">&#x21bb; Refresh</a>
+                            {% if can_invite %}
+                                <a href="{% url 'team_management:invite_member' %}" class="team-primary-button team-primary-button-green">Create Account</a>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -137,7 +139,7 @@
                                         <span class="member-badge badge-amber">Requested</span>
                                         <span class="member-status is-inactive">{{ member.status_label }}</span>
                                     </div>
-                                    <p>{{ member.user.email }} • Requested role: {{ member.requested_role_label }}</p>
+                                    <p>{{ member.user.email }} &bull; Requested role: {{ member.requested_role_label }}</p>
                                 </div>
                             </div>
 
@@ -179,7 +181,7 @@
                                         <span class="member-badge {{ member.badge_class }}">{{ member.display_title }}</span>
                                         <span class="member-status {% if member.membership.status == 'approved' and member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
                                     </div>
-                                    <p>{{ member.subtitle }}{% if member.user.email %} • {{ member.user.email }}{% endif %}</p>
+                                    <p>{{ member.subtitle }}{% if member.user.email %} &bull; {{ member.user.email }}{% endif %}</p>
                                 </div>
                             </div>
 
@@ -214,13 +216,13 @@
                 <h3>No roster members yet</h3>
                 <p>
                     {% if can_manage %}
-                        Start by adding players or staff members who already have an account and are not assigned to another team.
+                        Start by creating player, parent, coach, or staff accounts from the dedicated account-creation page.
                     {% else %}
                         You are not assigned to a team roster yet.
                     {% endif %}
                 </p>
-                {% if can_manage %}
-                    <a href="{% url 'team_management:add_member' %}" class="team-primary-button team-primary-button-green">Add Your First Member</a>
+                {% if can_invite %}
+                    <a href="{% url 'team_management:invite_member' %}" class="team-primary-button team-primary-button-green">Create Your First Member Account</a>
                 {% endif %}
             </div>
         {% endif %}
@@ -242,33 +244,31 @@
         }
 
         const filterToggle = document.querySelector(".roster-filter-toggle");
-        if (!filterToggle) {
-            return;
-        }
+        if (filterToggle) {
+            const filterLinks = filterToggle.querySelectorAll("[data-filter-link]");
+            let isNavigating = false;
 
-        const filterLinks = filterToggle.querySelectorAll("[data-filter-link]");
-        let isNavigating = false;
+            filterLinks.forEach((link) => {
+                link.addEventListener("click", (event) => {
+                    const target = link.dataset.filterLink;
+                    if (!target || filterToggle.dataset.active === target || isNavigating) {
+                        return;
+                    }
 
-        filterLinks.forEach((link) => {
-            link.addEventListener("click", (event) => {
-                const target = link.dataset.filterLink;
-                if (!target || filterToggle.dataset.active === target || isNavigating) {
-                    return;
-                }
+                    event.preventDefault();
+                    isNavigating = true;
+                    filterToggle.dataset.active = target;
 
-                event.preventDefault();
-                isNavigating = true;
-                filterToggle.dataset.active = target;
+                    filterLinks.forEach((item) => {
+                        item.classList.toggle("is-active", item === link);
+                    });
 
-                filterLinks.forEach((item) => {
-                    item.classList.toggle("is-active", item === link);
+                    window.setTimeout(() => {
+                        window.location.href = link.href;
+                    }, 220);
                 });
-
-                window.setTimeout(() => {
-                    window.location.href = link.href;
-                }, 220);
             });
-        });
+        }
     })();
 </script>
 {% endblock %}

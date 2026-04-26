@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | V-Manager{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'team_management/team_management.css' %}?v=14">
+{% endblock %}
+
+{% block body_class %}team-page{% endblock %}
+
+{% block content %}
+<main class="team-shell">
+    <section class="team-hero">
+        <div class="container">
+            <h1>{{ page_title }}</h1>
+            <p>{{ page_description }}</p>
+        </div>
+    </section>
+
+    <section class="container member-layout">
+        <section class="member-form-card roster-invite-card">
+            {% if messages %}
+                <div class="team-messages">
+                    {% for message in messages %}
+                        <p class="team-message">{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <div class="team-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <header class="member-form-head roster-invite-head">
+                <div>
+                    <h2>Create Roster Account</h2>
+                    <p>Add a player, parent, coach, or staff member directly from the roster. We will email a temporary password and require a password change on first login.</p>
+                </div>
+                <div class="team-assignment-banner roster-invite-banner">
+                    <strong>{{ team.name }}</strong>
+                    <span>
+                        {% if request.user.profile.role == "manager" %}
+                            Managers can create players, captains, parents, coaches, and staff.
+                        {% else %}
+                            Staff can create players, captains, parents, and coaches.
+                        {% endif %}
+                    </span>
+                </div>
+            </header>
+
+            <form method="post" enctype="multipart/form-data" class="member-form-grid roster-invite-form">
+                {% csrf_token %}
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} <span>*</span></label>
+                        {{ form.first_name }}
+                        {{ form.first_name.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} <span>*</span></label>
+                        {{ form.last_name }}
+                        {{ form.last_name.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span>*</span></label>
+                        {{ form.email }}
+                        {{ form.email.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+                        {{ form.phone_number }}
+                        {{ form.phone_number.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two">
+                    <div class="team-field">
+                        <label for="{{ form.date_of_birth.id_for_label }}">{{ form.date_of_birth.label }}</label>
+                        {{ form.date_of_birth }}
+                        {{ form.date_of_birth.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.invite_role.id_for_label }}">{{ form.invite_role.label }} <span>*</span></label>
+                        {{ form.invite_role }}
+                        {{ form.invite_role.errors }}
+                    </div>
+                </div>
+
+                <div class="member-grid-two" data-invite-player-fields>
+                    <div class="team-field">
+                        <label for="{{ form.position.id_for_label }}">{{ form.position.label }}</label>
+                        {{ form.position }}
+                        {{ form.position.errors }}
+                    </div>
+                    <div class="team-field">
+                        <label for="{{ form.jersey_number.id_for_label }}">{{ form.jersey_number.label }}</label>
+                        {{ form.jersey_number }}
+                        {{ form.jersey_number.errors }}
+                    </div>
+                </div>
+
+                <div class="team-field">
+                    <label for="{{ form.profile_photo.id_for_label }}">{{ form.profile_photo.label }}</label>
+                    <label class="upload-shell" for="{{ form.profile_photo.id_for_label }}" data-upload-shell>
+                        <span class="upload-preview is-hidden" data-upload-preview-wrap>
+                            <img src="" alt="Selected profile photo preview" data-upload-preview>
+                        </span>
+                        <span class="upload-placeholder" data-upload-placeholder>
+                            <span class="upload-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M12 16V5"></path>
+                                    <path d="M8 9l4-4 4 4"></path>
+                                    <path d="M5 15v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"></path>
+                                </svg>
+                            </span>
+                            <span data-upload-label>Upload profile photo</span>
+                            <span class="team-field-hint">Optional, image files only.</span>
+                        </span>
+                    </label>
+                    {{ form.profile_photo }}
+                    {{ form.profile_photo.errors }}
+                </div>
+
+                <div class="member-form-actions roster-invite-actions">
+                    <button type="submit" class="team-primary-button team-primary-button-green">{{ submit_label }}</button>
+                    <a href="{% url 'team_management:roster' %}" class="team-secondary-button">Back to Roster</a>
+                    <p class="team-field-hint">New users receive a temporary password by email, then must choose a new password after their first sign-in.</p>
+                </div>
+            </form>
+        </section>
+
+        <aside class="member-side-card">
+            <h3>Recently added</h3>
+            <div class="recent-member-list">
+                {% for member in recent_members %}
+                    <article class="recent-member-card">
+                        <div class="recent-member-head">
+                            <div>
+                                <strong>{{ member.display_name }}</strong>
+                                <p>{{ member.display_title }}{% if member.profile.position %} - {{ member.profile.position }}{% endif %}</p>
+                            </div>
+                            <span class="member-status {% if member.membership.is_active %}is-active{% else %}is-inactive{% endif %}">{{ member.status_label }}</span>
+                        </div>
+                        <small>{{ member.membership.joined_at|date:"M. d, Y" }}</small>
+                    </article>
+                {% empty %}
+                    <p class="recent-empty">No members have been added yet.</p>
+                {% endfor %}
+            </div>
+        </aside>
+    </section>
+</main>
+
+<script>
+    (() => {
+        const roleInput = document.getElementById("{{ form.invite_role.id_for_label }}");
+        const playerFields = document.querySelector("[data-invite-player-fields]");
+        const photoInput = document.getElementById("{{ form.profile_photo.id_for_label }}");
+        const previewWrap = document.querySelector("[data-upload-preview-wrap]");
+        const previewImage = document.querySelector("[data-upload-preview]");
+        const uploadPlaceholder = document.querySelector("[data-upload-placeholder]");
+        const uploadLabel = document.querySelector("[data-upload-label]");
+
+        const syncPlayerFields = () => {
+            if (!roleInput || !playerFields) {
+                return;
+            }
+            const needsPlayerFields = ["player", "captain"].includes(roleInput.value);
+            playerFields.classList.toggle("is-hidden", !needsPlayerFields);
+        };
+
+        const syncPhotoPreview = () => {
+            if (!photoInput || !previewWrap || !previewImage || !uploadPlaceholder) {
+                return;
+            }
+
+            const file = photoInput.files && photoInput.files[0];
+            if (!file) {
+                previewImage.removeAttribute("src");
+                previewWrap.classList.add("is-hidden");
+                uploadPlaceholder.classList.remove("is-hidden");
+                if (uploadLabel) {
+                    uploadLabel.textContent = "Upload profile photo";
+                }
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.addEventListener("load", (event) => {
+                previewImage.src = event.target?.result || "";
+                previewWrap.classList.remove("is-hidden");
+                uploadPlaceholder.classList.add("is-hidden");
+            });
+            reader.readAsDataURL(file);
+        };
+
+        syncPlayerFields();
+        syncPhotoPreview();
+
+        if (roleInput) {
+            roleInput.addEventListener("change", syncPlayerFields);
+        }
+        if (photoInput) {
+            photoInput.addEventListener("change", syncPhotoPreview);
+        }
+    })();
+</script>
+{% endblock %}

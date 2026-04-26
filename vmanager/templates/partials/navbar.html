@@ -9,24 +9,17 @@
         <nav class="site-nav" id="primary-nav" aria-label="Primary navigation">
             <a href="{% url 'home' %}#home">Home</a>
             {% if can_view_roster_nav %}
-                <a href="{% url 'team_management:roster' %}">Roster</a>
+                <a href="{% url 'team_management:roster' %}">Team Management</a>
             {% endif %}
-            <div class="site-nav-item has-dropdown">
-                <a href="{% url 'home' %}#features" class="site-nav-link">Features</a>
-                <div class="nav-dropdown-menu" aria-label="Feature links">
-                    {% if can_view_roster_nav %}
-                        <a href="{% url 'team_management:roster' %}">Team Management</a>
-                    {% endif %}
-                    <a href="{% url 'scheduling:home' %}">Schedule &amp; Events</a>
-                    <a href="{% url 'performance:dashboard' %}">Performance Tracking</a>
-                    <a href="{% url 'match_readiness' %}">Match Readiness Score</a>
-                    <a href="{% url 'ai_hub_home' %}">AI Evolution Hub</a>
-                    <a href="{% url 'communication:hub' %}">Communication Hub</a>
-                </div>
-            </div>
-            <a href="{% url 'home' %}#pricing">Pricing</a>
-            <a href="{% url 'home' %}#testimonials">Testimonials</a>
-            <a href="{% url 'home' %}#contact">Contact</a>
+            <a href="{% url 'scheduling:home' %}">Schedule</a>
+            <a href="{% url 'performance:dashboard' %}">Performance</a>
+            {% if can_view_match_readiness_nav %}
+                <a href="{% url 'match_readiness' %}">Readiness</a>
+            {% endif %}
+            {% if can_view_ai_hub_nav %}
+                <a href="{% url 'ai_hub_home' %}">AI Hub</a>
+            {% endif %}
+            <a href="{% url 'communication:hub' %}">Communication</a>
         </nav>
 
         <div class="nav-actions">
@@ -48,7 +41,10 @@
 
                 {% firstof request.user.profile.club_name request.user.team_membership.team.name "V-Manager" as raw_club_name %}
                 {% with club_name=raw_club_name|cut:" Club"|cut:" club" %}
-                    <span class="nav-user">Welcome to "{{ club_name }}" Club</span>
+                    <span class="nav-user">
+                        <span class="nav-user-full">Welcome to "{{ club_name }}" Club</span>
+                        <span class="nav-user-short">{{ club_name }}</span>
+                    </span>
                 {% endwith %}
                 <form method="post" action="{% url 'accounts:logout' %}" class="nav-logout-form">
                     {% csrf_token %}

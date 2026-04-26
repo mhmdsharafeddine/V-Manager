@@ -42,6 +42,7 @@ class AccountProfile(models.Model):
     jersey_number = models.PositiveIntegerField(blank=True, null=True)
     position = models.CharField(max_length=120, blank=True)
     profile_photo = models.FileField(upload_to="profile_photos/", blank=True)
+    must_change_password = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

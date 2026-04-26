@@ -1,12 +1,14 @@
 import pickle
 import numpy as np
 
-from django.shortcuts import render
+from django.contrib import messages
+from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 import joblib
 import os
 from django.conf import settings
 from team_management.models import TeamMembership
+from team_management.access import can_access_advanced_analytics
 from accounts.models import AccountProfile
 from performance.models import TeamPerformanceRecord
 from django.utils import timezone
@@ -40,9 +42,9 @@ HEALTH_MAP = {
 
 @login_required
 def match_readiness_page(request):
-    
-
-
+    if not can_access_advanced_analytics(request.user):
+        messages.error(request, "Players and parents cannot access AI Evolution Hub or Match Readiness.")
+        return redirect("home")
 
     user_membership = TeamMembership.objects.select_related("team").get(user=request.user)
     user_team = user_membership.team

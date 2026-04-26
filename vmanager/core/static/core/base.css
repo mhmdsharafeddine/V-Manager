@@ -433,10 +433,11 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(14px, 1.65vw, 28px);
+    gap: clamp(10px, 1.2vw, 18px);
     flex-wrap: nowrap;
     min-width: 0;
     font-weight: 700;
+    font-size: 0.96rem;
     color: #1a9fc4;
 }
 
@@ -663,6 +664,10 @@ textarea {
     text-overflow: ellipsis;
 }
 
+.nav-user-short {
+    display: none;
+}
+
 .nav-logout-form {
     margin: 0;
     display: flex;
@@ -867,6 +872,22 @@ textarea {
 .nav-burger.is-active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .nav-burger.is-active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .nav-burger.is-active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 1440px) {
+    .nav-user {
+        max-width: 180px;
+        justify-content: center;
+        padding-inline: 14px;
+    }
+
+    .nav-user-full {
+        display: none;
+    }
+
+    .nav-user-short {
+        display: inline;
+    }
+}
 
 @media (max-width: 1200px) {
     /* Hide the welcome pill early so the single-row layout holds longer */

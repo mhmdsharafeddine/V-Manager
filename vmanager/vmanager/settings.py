@@ -30,9 +30,16 @@ SECRET_KEY = 'django-insecure-=qs+@uld6r8@ym^&%fjfeib=%57x%gv*0q!--@0!8xc^v0$9nu
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        "DJANGO_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,0.0.0.0,[::1]",
+    ).split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -63,6 +70,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'accounts.middleware.JWTAuthenticationMiddleware',
+    'accounts.middleware.ForcePasswordChangeMiddleware',
     'communication.middleware.LastSeenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

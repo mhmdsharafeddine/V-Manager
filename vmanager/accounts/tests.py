@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.core import mail
 
 from .jwt_utils import create_access_token
-from .models import AccountProfile, EmailVerificationCode, ParentChildLink
+from .models import AccountProfile, EmailVerificationCode
 from team_management.models import Team, TeamMembership
 
 User = get_user_model()
@@ -37,7 +37,7 @@ class AccountProfileTests(TestCase):
         self.assertEqual(str(user.profile.date_of_birth), "1990-03-12")
         self.assertEqual(user.team_membership.status, TeamMembership.STATUS_APPROVED)
 
-    def test_register_member_creates_pending_membership_request(self):
+    def test_public_member_registration_is_blocked(self):
         manager_user = User.objects.create_user(
             username="manager@example.com",
             email="manager@example.com",
@@ -60,117 +60,9 @@ class AccountProfileTests(TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("accounts:login"))
-        self.assertEqual(len(mail.outbox), 0)
-        user = User.objects.get(email="nour@example.com")
-        self.assertEqual(user.profile.role, AccountProfile.ROLE_PLAYER)
-        self.assertEqual(user.team_membership.status, TeamMembership.STATUS_PENDING)
-        self.assertEqual(user.team_membership.requested_role, AccountProfile.ROLE_PLAYER)
-
-    def test_register_parent_creates_linked_player_and_two_pending_requests(self):
-        manager_user = User.objects.create_user(
-            username="manager@example.com",
-            email="manager@example.com",
-            password="StrongPass123!",
-        )
-        AccountProfile.objects.create(user=manager_user, role=AccountProfile.ROLE_MANAGER, club_name="Lions")
-        team = Team.objects.create(name="Lions", created_by=manager_user)
-
-        response = self.client.post(
-            reverse("accounts:register"),
-            data={
-                "signup_type": "member",
-                "first_name": "Rana",
-                "last_name": "Salem",
-                "date_of_birth": "1988-08-17",
-                "email": "parent@example.com",
-                "password": "StrongPass123!",
-                "team": str(team.id),
-                "requested_role": AccountProfile.ROLE_PARENT,
-                "children-TOTAL_FORMS": "1",
-                "children-INITIAL_FORMS": "0",
-                "children-MIN_NUM_FORMS": "1",
-                "children-MAX_NUM_FORMS": "1000",
-                "children-0-first_name": "Omar",
-                "children-0-last_name": "Salem",
-                "children-0-date_of_birth": "2011-05-22",
-                "children-0-email": "player@example.com",
-                "children-0-password": "StrongPass123!",
-            },
-        )
-
-        self.assertRedirects(response, reverse("accounts:login"))
-        parent_user = User.objects.get(email="parent@example.com")
-        player_user = User.objects.get(email="player@example.com")
-        self.assertEqual(parent_user.profile.role, AccountProfile.ROLE_PARENT)
-        self.assertEqual(player_user.profile.role, AccountProfile.ROLE_PLAYER)
-        self.assertEqual(parent_user.team_membership.team, team)
-        self.assertEqual(player_user.team_membership.team, team)
-        self.assertEqual(parent_user.team_membership.status, TeamMembership.STATUS_PENDING)
-        self.assertEqual(player_user.team_membership.status, TeamMembership.STATUS_PENDING)
-        self.assertEqual(parent_user.team_membership.requested_role, AccountProfile.ROLE_PARENT)
-        self.assertEqual(player_user.team_membership.requested_role, AccountProfile.ROLE_PLAYER)
-        self.assertEqual(parent_user.profile.linked_player, player_user.profile)
-        self.assertEqual(parent_user.profile.child_name, "Omar Salem")
-        self.assertTrue(
-            ParentChildLink.objects.filter(
-                parent_profile=parent_user.profile,
-                child_profile=player_user.profile,
-            ).exists()
-        )
-
-    def test_register_parent_can_create_multiple_linked_children(self):
-        manager_user = User.objects.create_user(
-            username="manager@example.com",
-            email="manager@example.com",
-            password="StrongPass123!",
-        )
-        AccountProfile.objects.create(user=manager_user, role=AccountProfile.ROLE_MANAGER, club_name="Lions")
-        team = Team.objects.create(name="Lions", created_by=manager_user)
-
-        response = self.client.post(
-            reverse("accounts:register"),
-            data={
-                "signup_type": "member",
-                "first_name": "Rana",
-                "last_name": "Salem",
-                "date_of_birth": "1988-08-17",
-                "email": "parent@example.com",
-                "password": "StrongPass123!",
-                "team": str(team.id),
-                "requested_role": AccountProfile.ROLE_PARENT,
-                "children-TOTAL_FORMS": "2",
-                "children-INITIAL_FORMS": "0",
-                "children-MIN_NUM_FORMS": "1",
-                "children-MAX_NUM_FORMS": "1000",
-                "children-0-first_name": "Omar",
-                "children-0-last_name": "Salem",
-                "children-0-date_of_birth": "2011-05-22",
-                "children-0-email": "omar@example.com",
-                "children-0-password": "StrongPass123!",
-                "children-1-first_name": "Lina",
-                "children-1-last_name": "Salem",
-                "children-1-date_of_birth": "2013-07-14",
-                "children-1-email": "lina@example.com",
-                "children-1-password": "StrongPass123!",
-            },
-        )
-
-        self.assertRedirects(response, reverse("accounts:login"))
-        parent_user = User.objects.get(email="parent@example.com")
-        child_profiles = list(parent_user.profile.linked_children_profiles())
-
-        self.assertEqual(len(child_profiles), 2)
-        self.assertCountEqual(
-            [child.user.email for child in child_profiles],
-            ["omar@example.com", "lina@example.com"],
-        )
-        self.assertEqual(
-            ParentChildLink.objects.filter(parent_profile=parent_user.profile).count(),
-            2,
-        )
-        self.assertEqual(parent_user.profile.linked_player.user.email, "omar@example.com")
-        self.assertEqual(parent_user.profile.child_name, "Omar Salem")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Public registration is only available for team managers.")
+        self.assertFalse(User.objects.filter(email="nour@example.com").exists())
 
     def test_register_with_existing_username_shows_form_error_instead_of_crashing(self):
         User.objects.create_user(
@@ -329,6 +221,59 @@ class AccountProfileTests(TestCase):
         self.assertIsNotNone(verification.used_at)
         self.assertIn("vm_access_token", response.cookies)
 
+    def test_verify_2fa_redirects_invited_user_to_initial_password_change(self):
+        user = User.objects.create_user(
+            username="invited@example.com",
+            email="invited@example.com",
+            password="TempPass123!",
+        )
+        AccountProfile.objects.create(
+            user=user,
+            role=AccountProfile.ROLE_PLAYER,
+            must_change_password=True,
+        )
+        session = self.client.session
+        session["pending_auth_user_id"] = user.pk
+        session["pending_auth_remember_me"] = False
+        session.save()
+
+        verification, code = EmailVerificationCode.create_code(
+            user,
+            EmailVerificationCode.PURPOSE_LOGIN_2FA,
+        )
+
+        response = self.client.post(reverse("accounts:verify_2fa"), data={"code": code})
+
+        self.assertRedirects(response, reverse("accounts:initial_password_change"))
+        verification.refresh_from_db()
+        self.assertIsNotNone(verification.used_at)
+
+    def test_initial_password_change_updates_password_and_clears_flag(self):
+        user = User.objects.create_user(
+            username="firstlogin@example.com",
+            email="firstlogin@example.com",
+            password="TempPass123!",
+        )
+        AccountProfile.objects.create(
+            user=user,
+            role=AccountProfile.ROLE_COACH,
+            must_change_password=True,
+        )
+
+        self.client.force_login(user)
+        response = self.client.post(
+            reverse("accounts:initial_password_change"),
+            data={
+                "new_password1": "NewStrongPass123!",
+                "new_password2": "NewStrongPass123!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("home"))
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewStrongPass123!"))
+        self.assertFalse(user.profile.must_change_password)
+
     def test_forgot_password_sends_email(self):
         user = User.objects.create_user(
             username="reset@example.com",
@@ -382,7 +327,7 @@ class AccountProfileTests(TestCase):
             email="confirm@example.com",
             password="OldPass123!",
         )
-        AccountProfile.objects.create(user=user, role=AccountProfile.ROLE_COACH)
+        AccountProfile.objects.create(user=user, role=AccountProfile.ROLE_COACH, must_change_password=True)
         session = self.client.session
         session["verified_password_reset_user_id"] = user.pk
         session.save()
@@ -398,3 +343,4 @@ class AccountProfileTests(TestCase):
         self.assertRedirects(response, reverse("accounts:password_reset_complete"))
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewStrongPass123!"))
+        self.assertFalse(user.profile.must_change_password)

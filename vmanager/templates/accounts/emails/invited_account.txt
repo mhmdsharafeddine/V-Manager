@@ -1,0 +1,12 @@
+Hello {{ first_name }},
+
+Your V-Manager account for {{ team_name }} has been created.
+
+Temporary password: {{ temporary_password }}
+
+Sign in with your email address and this temporary password. After your first login, V-Manager will immediately ask you to choose a new password before you can continue.
+
+This account was created for you by {{ inviter_name }}.
+
+See you soon,
+V-Manager

@@ -1,15 +1,19 @@
 # ai_hub/views.py
+import logging
 from datetime import date
 
-from django.shortcuts import render
+from django.contrib import messages
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
 from django.db.models import Q
 from django.db.models import Avg, Sum
 from team_management.models import TeamMembership
+from team_management.access import can_access_advanced_analytics
 from performance.models import TeamPerformanceRecord
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 
-OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
+logger = logging.getLogger(__name__)
 MAX_KILLS = 20
 MAX_ACES = 5
 MAX_BLOCKS = 10
@@ -25,6 +29,11 @@ POSITION_WEIGHTS = {
     "right side":      (0.50, 0.25, 0.25),
     "player":          (0.40, 0.30, 0.30),  # default fallback
 }
+
+
+def _deny_advanced_analytics_page(request):
+    messages.error(request, "Players and parents cannot access AI Evolution Hub or Match Readiness.")
+    return redirect("home")
 
 def compute_rating(kills_pct, aces_pct, blocks_pct, position="player"):
     kw, aw, bw = POSITION_WEIGHTS.get(position.lower().strip(), (0.40, 0.30, 0.30))
@@ -116,6 +125,9 @@ def _build_player_payload(*, member_id, name, avatar, position, kills, aces, blo
 # Determine season start year
 @login_required
 def home(request):
+    if not can_access_advanced_analytics(request.user):
+        return _deny_advanced_analytics_page(request)
+
     user = request.user
     membership = TeamMembership.objects.select_related("team").filter(
         user=user,
@@ -240,8 +252,6 @@ def home(request):
         "team_name": team_name,
     })
 
-from django.http import JsonResponse
-from django.db.models import Avg
 from django.db.models.functions import TruncMonth
 
 from performance.models import TeamPerformanceRecord
@@ -249,6 +259,9 @@ from performance.models import TeamPerformanceRecord
 
 
 def player_monthly_stats(request, member_id):
+    if not can_access_advanced_analytics(request.user):
+        return JsonResponse({"error": "Forbidden."}, status=403)
+
     qs = (
         TeamPerformanceRecord.objects
         .filter(member_id=member_id)
@@ -288,10 +301,57 @@ import requests
 from django.views.decorators.csrf import csrf_exempt
 
 
+def _generate_openrouter_insight(prompt):
+    api_key = (getattr(settings, "OPENROUTER_API_KEY", "") or "").strip()
+    if not api_key:
+        raise RuntimeError("OpenRouter API key is missing.")
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "inclusionai/ling-2.6-1t:free",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 70,
+        },
+        timeout=25,
+    )
+
+    try:
+        result = response.json()
+    except ValueError:
+        result = {}
+
+    if not response.ok:
+        error_message = (
+            (result.get("error") or {}).get("message")
+            or response.text[:200]
+            or f"HTTP {response.status_code}"
+        )
+        raise RuntimeError(f"OpenRouter {response.status_code}: {error_message}")
+
+    content = (
+        ((result.get("choices") or [{}])[0].get("message") or {}).get("content", "")
+    ).strip()
+    if not content:
+        raise RuntimeError("OpenRouter returned an empty insight.")
+
+    return content
+
+
 
 
 @csrf_exempt
+@login_required
 def generate_insights(request):
+    if not can_access_advanced_analytics(request.user):
+        return JsonResponse({"error": "Forbidden."}, status=403)
+
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=400)
 
@@ -306,7 +366,7 @@ def generate_insights(request):
         position = p.get("position", "Unknown")
         # Build prompt
         kw, aw, bw = POSITION_WEIGHTS.get(position.lower().strip(), (0.40, 0.30, 0.30))
-        prompt = f"""
+        prompt = fprompt = f"""
         You are an expert volleyball performance analyst reviewing a player's season data.
 
         PLAYER PROFILE:
@@ -328,36 +388,21 @@ def generate_insights(request):
         OVERALL RATING (position-weighted: {int(kw*100)}% attack + {int(aw*100)}% ace + {int(bw*100)}% block):
         This weighting reflects the {position} role's priorities.
 
-        Based on this data, give ONE coaching insight (2-3 sentences max, under 50 words).
-        Focus on: their strongest skill, a specific trend you notice in the monthly data, and one actionable improvement.
-        Be specific and realistic — avoid generic advice.
+        Based on this data, give ONE coaching insight (2-3 sentences max, under 90 words).
+
+        Focus on:
+        - The player's biggest weakness or underperforming area
+        - A clear pattern or trend from the monthly data that explains it
+        - One specific thing they should focus on improving next
+
+        Be easy, direct, specific, and actionable and use simple and easy words. Do not give generic advice.
         """
 
-        print(f"Generated prompt for {name}: {prompt}")
-
         try:
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "openai/gpt-4o-mini",
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
-                    "max_tokens": 70
-                }
-            )
-
-            result = response.json()
-            print(f"AI response for {name}: {result}")
-            insight = result["choices"][0]["message"]["content"].strip()
-
+            insight = _generate_openrouter_insight(prompt)
         except Exception as e:
-            print(f"Error generating insight for {name}: {e}")
-            insight = "AI insight unavailable."
+            logger.exception("Error generating AI insight for %s", name)
+            insight = f"AI unavailable: {e}" if settings.DEBUG else "AI insight unavailable."
 
         insights[str(p["id"])] = insight
 

@@ -4,7 +4,7 @@ from smtplib import SMTPException
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib import messages
-from django.contrib.auth import authenticate, update_session_auth_hash
+from django.contrib.auth import authenticate, login as django_login, logout as django_logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -16,7 +16,6 @@ from .email_utils import send_login_2fa_code, send_password_reset_code
 from .forms import (
     AccountSettingsForm,
     ForgotPasswordForm,
-    LinkedPlayerRegistrationFormSet,
     LoginForm,
     NotificationPreferencesForm,
     PasswordResetCodeForm,
@@ -82,6 +81,9 @@ def _email_send_failed(error: Exception) -> bool:
 
 
 def _post_login_redirect_name(user):
+    profile = getattr(user, "profile", None)
+    if profile and profile.must_change_password:
+        return "accounts:initial_password_change"
     membership = getattr(user, "team_membership", None)
     if membership and membership.status in {
         TeamMembership.STATUS_PENDING,
@@ -158,60 +160,56 @@ def register_view(request):
         return redirect_response
 
     form = RegistrationForm(request.POST or None)
-    linked_child_formset = LinkedPlayerRegistrationFormSet(request.POST or None, prefix="children")
 
     if request.method == "POST":
-        form_valid = form.is_valid()
-        signup_type = form.cleaned_data.get("signup_type") if form_valid else (request.POST.get("signup_type") or "").strip()
-        requested_role = form.cleaned_data.get("requested_role") if form_valid else (request.POST.get("requested_role") or "").strip()
-        needs_child_formset = signup_type == RegistrationForm.SIGNUP_MEMBER and requested_role == AccountProfile.ROLE_PARENT
-
-        child_formset_valid = True
-        linked_children = []
-        if needs_child_formset:
-            child_formset_valid = linked_child_formset.is_valid()
-            linked_children = [
-                child_form.cleaned_data
-                for child_form in linked_child_formset.forms
-                if getattr(child_form, "cleaned_data", None) and not child_form.cleaned_data.get("DELETE")
-            ]
-            if form_valid:
-                parent_email = form.cleaned_data.get("email")
-                child_emails = [child_data.get("email") for child_data in linked_children if child_data.get("email")]
-                if parent_email and parent_email in child_emails:
-                    child_formset_valid = False
-                    for child_form in linked_child_formset.forms:
-                        if getattr(child_form, "cleaned_data", None) and child_form.cleaned_data.get("email") == parent_email:
-                            child_form.add_error("email", "Child email must be different from the parent email.")
-
-        if form_valid and child_formset_valid:
-            try:
-                form.save(linked_children=linked_children)
-            except ValidationError as exc:
-                form.add_error("email", str(exc))
+        if form.is_valid():
+            if form.cleaned_data.get("signup_type") != RegistrationForm.SIGNUP_MANAGER:
+                form.add_error(None, "Public registration is only available for team managers.")
             else:
-                if needs_child_formset:
-                    child_count = len(linked_children)
-                    child_label = "child accounts" if child_count != 1 else "child account"
-                    messages.success(
-                        request,
-                        f"Parent and {child_count} linked {child_label} were created successfully. All requests are now waiting for manager approval. Please sign in.",
-                    )
-                elif signup_type == RegistrationForm.SIGNUP_MEMBER:
-                    messages.success(request, "Your account request was submitted successfully. Please sign in.")
+                try:
+                    form.save(linked_children=[])
+                except ValidationError as exc:
+                    form.add_error("email", str(exc))
                 else:
-                    messages.success(request, "Your account was created successfully. Please sign in.")
-                return redirect("accounts:login")
+                    messages.success(request, "Your manager account was created successfully. Please sign in.")
+                    return redirect("accounts:login")
+
+    if not form.is_bound:
+        form.initial["signup_type"] = RegistrationForm.SIGNUP_MANAGER
 
     return render(
         request,
         "accounts/register.html",
         {
             "form": form,
-            "linked_child_formset": linked_child_formset,
         },
     )
 
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def initial_password_change_view(request):
+    profile = getattr(request.user, "profile", None)
+    if profile is None or not profile.must_change_password:
+        return redirect(_post_login_redirect_name(request.user))
+
+    form = PasswordResetConfirmForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        request.user.set_password(form.cleaned_data["new_password1"])
+        request.user.save(update_fields=["password"])
+        profile.must_change_password = False
+        profile.save(update_fields=["must_change_password"])
+        update_session_auth_hash(request, request.user)
+        messages.success(request, "Your password has been updated successfully.")
+        return redirect("home")
+
+    return render(
+        request,
+        "accounts/initial_password_change.html",
+        {
+            "form": form,
+        },
+    )
 
 @require_http_methods(["GET", "POST"])
 def login_view(request):
@@ -248,7 +246,7 @@ def login_view(request):
 
     return render(request, "accounts/login.html", {"form": form})
 
-from django.contrib.auth import login as django_login
+
 @require_http_methods(["GET", "POST"])
 def verify_2fa_view(request):
     redirect_response = _redirect_if_authenticated(request)
@@ -282,7 +280,7 @@ def verify_2fa_view(request):
             remember_me = bool(request.session.get(PENDING_AUTH_REMEMBER_ME))
             _clear_pending_2fa_session(request)
 
-            django_login(request, user)  # ← add this
+            django_login(request, user)
             response = redirect(_post_login_redirect_name(user))
             set_auth_cookies(response, access_token, refresh_token, persistent=remember_me)
             messages.success(request, "Signed in successfully.")
@@ -456,6 +454,10 @@ def password_reset_confirm_view(request):
     if request.method == "POST" and user and form.is_valid():
         user.set_password(form.cleaned_data["new_password1"])
         user.save(update_fields=["password"])
+        profile = getattr(user, "profile", None)
+        if profile and profile.must_change_password:
+            profile.must_change_password = False
+            profile.save(update_fields=["must_change_password"])
         EmailVerificationCode.objects.filter(
             user=user,
             purpose=EmailVerificationCode.PURPOSE_PASSWORD_RESET,
@@ -480,11 +482,9 @@ def password_reset_complete_view(request):
     return render(request, "accounts/password_reset_complete.html")
 
 
-from django.contrib.auth import logout as django_logout
-
 @require_http_methods(["POST"])
 def logout_view(request):
-    django_logout(request)  # clears the session
+    django_logout(request)
     response = redirect("home")
     clear_auth_cookies(response)
     messages.success(request, "Logged out successfully.")

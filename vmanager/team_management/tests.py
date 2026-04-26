@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
@@ -73,6 +74,40 @@ class TeamManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Add Member")
 
+    def test_manager_roster_page_links_to_account_creation_page(self):
+        manager = self._create_user(
+            email="rostermanager@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Roster Club",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get(reverse("team_management:roster"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Create Account")
+        self.assertNotContains(response, "Create Roster Account")
+
+    def test_staff_account_creation_page_hides_staff_option(self):
+        manager = self._create_user(
+            email="leadstaffform@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Orbit Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        staff = self._create_user(email="staffform@example.com", role=AccountProfile.ROLE_STAFF)
+        TeamMembership.objects.create(user=staff, team=team, member_title="Staff", added_by=manager)
+
+        self.client.force_login(staff)
+        response = self.client.get(reverse("team_management:invite_member"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Create Roster Account")
+        self.assertNotContains(response, '<option value="staff">Staff</option>', html=False)
+
     def test_player_cannot_access_add_member_page(self):
         player = self._create_user(email="player2@example.com", role=AccountProfile.ROLE_PLAYER)
         self.client.force_login(player)
@@ -80,6 +115,170 @@ class TeamManagementTests(TestCase):
         response = self.client.get(reverse("team_management:add_member"))
 
         self.assertRedirects(response, reverse("home"))
+
+    def test_captain_cannot_see_or_access_ai_hub_and_match_readiness(self):
+        manager = self._create_user(
+            email="managercaptain@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Captain Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        captain = self._create_user(email="captainhidden@example.com", role=AccountProfile.ROLE_PLAYER)
+        TeamMembership.objects.create(user=captain, team=team, member_title="Captain", added_by=manager)
+
+        self.client.force_login(captain)
+        home_response = self.client.get(reverse("home"))
+        self.assertContains(home_response, "Match Readiness Score")
+        self.assertContains(home_response, "AI Evolution Hub")
+        self.assertContains(home_response, "Restricted")
+
+        match_response = self.client.get(reverse("match_readiness"), follow=True)
+        self.assertRedirects(match_response, reverse("home"))
+        self.assertContains(match_response, "cannot access AI Evolution Hub or Match Readiness")
+
+        ai_response = self.client.get(reverse("ai_hub_home"), follow=True)
+        self.assertRedirects(ai_response, reverse("home"))
+        self.assertContains(ai_response, "cannot access AI Evolution Hub or Match Readiness")
+
+    def test_parent_cannot_see_or_access_ai_hub_and_match_readiness(self):
+        manager = self._create_user(
+            email="managerparenthidden@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Parent Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        parent = self._create_user(email="parenthidden@example.com", role=AccountProfile.ROLE_PARENT)
+        TeamMembership.objects.create(user=parent, team=team, member_title="Parent", added_by=manager)
+
+        self.client.force_login(parent)
+        home_response = self.client.get(reverse("home"))
+        self.assertContains(home_response, "Match Readiness Score")
+        self.assertContains(home_response, "AI Evolution Hub")
+        self.assertContains(home_response, "Restricted")
+
+        match_response = self.client.get(reverse("match_readiness"), follow=True)
+        self.assertRedirects(match_response, reverse("home"))
+        self.assertContains(match_response, "cannot access AI Evolution Hub or Match Readiness")
+
+    def test_manager_can_invite_staff_from_roster(self):
+        manager = self._create_user(
+            email="managerinvite@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Invite Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        response = self.client.post(
+            reverse("team_management:invite_member"),
+            data={
+                "invite-first_name": "Sara",
+                "invite-last_name": "Staff",
+                "invite-email": "sarastaff@example.com",
+                "invite-phone_number": "+961123456",
+                "invite-date_of_birth": "1993-05-22",
+                "invite-invite_role": "staff",
+                "invite-position": "",
+                "invite-jersey_number": "",
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("team_management:roster"))
+        self.assertContains(response, "was added to the roster and emailed a temporary password")
+        invited_user = User.objects.get(email="sarastaff@example.com")
+        self.assertEqual(invited_user.profile.role, AccountProfile.ROLE_STAFF)
+        self.assertTrue(invited_user.profile.must_change_password)
+        self.assertEqual(invited_user.team_membership.team, team)
+        self.assertEqual(invited_user.team_membership.member_title, "Staff")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Temporary password:", mail.outbox[0].body)
+
+    def test_invite_member_duplicate_email_shows_validation_error(self):
+        manager = self._create_user(
+            email="managerduplicate@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Duplicate Club",
+        )
+        existing_user = self._create_user(email="existinginvite@example.com", role=AccountProfile.ROLE_PLAYER)
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+
+        response = self.client.post(
+            reverse("team_management:invite_member"),
+            data={
+                "invite-first_name": "Existing",
+                "invite-last_name": "Invite",
+                "invite-email": existing_user.email,
+                "invite-phone_number": "",
+                "invite-date_of_birth": "",
+                "invite-invite_role": "player",
+                "invite-position": "Setter",
+                "invite-jersey_number": "7",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "An account with this email already exists.")
+        self.assertNotContains(response, "We could not send the invite email right now")
+
+    def test_staff_can_invite_coach_but_not_staff(self):
+        manager = self._create_user(
+            email="managerlead@example.com",
+            role=AccountProfile.ROLE_MANAGER,
+            club_name="Crew Club",
+        )
+        self.client.force_login(manager)
+        self.client.get(reverse("team_management:roster"))
+        team = TeamMembership.objects.get(user=manager).team
+
+        staff = self._create_user(email="crewstaff@example.com", role=AccountProfile.ROLE_STAFF)
+        TeamMembership.objects.create(user=staff, team=team, member_title="Staff", added_by=manager)
+
+        self.client.force_login(staff)
+        blocked_response = self.client.post(
+            reverse("team_management:invite_member"),
+            data={
+                "invite-first_name": "Blocked",
+                "invite-last_name": "Staff",
+                "invite-email": "blockedstaff@example.com",
+                "invite-phone_number": "",
+                "invite-date_of_birth": "",
+                "invite-invite_role": "staff",
+                "invite-position": "",
+                "invite-jersey_number": "",
+            },
+        )
+
+        self.assertEqual(blocked_response.status_code, 200)
+        self.assertContains(blocked_response, "Select a valid choice.")
+        self.assertFalse(User.objects.filter(email="blockedstaff@example.com").exists())
+
+        allowed_response = self.client.post(
+            reverse("team_management:invite_member"),
+            data={
+                "invite-first_name": "Lina",
+                "invite-last_name": "Coach",
+                "invite-email": "linacoach@example.com",
+                "invite-phone_number": "",
+                "invite-date_of_birth": "",
+                "invite-invite_role": "coach",
+                "invite-position": "",
+                "invite-jersey_number": "",
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(allowed_response, reverse("team_management:roster"))
+        self.assertTrue(User.objects.filter(email="linacoach@example.com").exists())
+        self.assertEqual(User.objects.get(email="linacoach@example.com").profile.role, AccountProfile.ROLE_COACH)
 
     def test_inactive_player_cannot_access_roster(self):
         manager = self._create_user(

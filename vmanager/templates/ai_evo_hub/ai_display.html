@@ -1,703 +1,17 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
+
+{% block title %}AI Evolution Hub | V-Manager{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ai_hub_evolution/hub.css' %}?v=1">
+{% endblock %}
+
+{% block body_class %}ai-hub-page{% endblock %}
+
 {% block content %}
-
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --navy: #10233a;
-    --teal: #15c2b2;
-    --teal-dark: #0e9c8d;
-    --orange: #ff7a18;
-    --orange-lt: #fff0e4;
-    --red: #ff4d57;
-    --red-lt: #ffe2e5;
-    --blue: #3f7cff;
-    --blue-lt: #e9f1ff;
-    --purple: #7a4fe4;
-    --purple-lt: #ede4ff;
-    --pink: #ff5ea8;
-    --mint: #e8fff8;
-    --muted: #607286;
-    --border: #dbe7f1;
-    --bg: #eef5fb;
-    --white: #ffffff;
-    --font: 'Plus Jakarta Sans', sans-serif;
-    --display: 'Space Grotesk', sans-serif;
-  }
-
-  body {
-    font-family: var(--font);
-    background:
-      radial-gradient(circle at top left, rgba(255, 122, 24, 0.16), transparent 28%),
-      radial-gradient(circle at top right, rgba(122, 79, 228, 0.16), transparent 24%),
-      radial-gradient(circle at bottom left, rgba(21, 194, 178, 0.16), transparent 28%),
-      linear-gradient(180deg, #f8fcff 0%, var(--bg) 100%);
-    color: var(--navy);
-    min-height: 100vh;
-    line-height: 1.6;
-  }
-
-  .hub-shell {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hub-shell::before,
-  .hub-shell::after {
-    content: '';
-    position: fixed;
-    width: 380px;
-    height: 380px;
-    border-radius: 50%;
-    filter: blur(18px);
-    opacity: 0.23;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .hub-shell::before {
-    top: -140px;
-    right: -120px;
-    background: radial-gradient(circle, rgba(255, 122, 24, 0.95) 0%, rgba(255, 122, 24, 0) 68%);
-  }
-
-  .hub-shell::after {
-    left: -130px;
-    bottom: -130px;
-    background: radial-gradient(circle, rgba(21, 194, 178, 0.92) 0%, rgba(21, 194, 178, 0) 68%);
-  }
-
-  .hub-hero,
-  .hub-wrap {
-    position: relative;
-    z-index: 1;
-    max-width: 1220px;
-    margin: 0 auto;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
-  .hub-hero {
-    padding: 40px 0 22px;
-  }
-
-  .hub-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.92);
-    color: var(--teal-dark);
-    font-size: 0.76rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    box-shadow: 0 10px 30px rgba(17, 35, 58, 0.06);
-    margin-bottom: 16px;
-  }
-
-  .hub-hero h1 {
-    font-family: var(--display);
-    font-size: clamp(2.2rem, 4vw, 3.8rem);
-    font-weight: 700;
-    letter-spacing: -0.05em;
-    line-height: 1.02;
-    max-width: 820px;
-    margin-bottom: 12px;
-  }
-
-  .hub-hero p {
-    font-size: 1rem;
-    color: var(--muted);
-    max-width: 760px;
-  }
-
-  .hero-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 22px;
-  }
-
-  .toolbar-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.86);
-    border: 1px solid var(--border);
-    box-shadow: 0 14px 30px rgba(17, 35, 58, 0.06);
-    color: var(--navy);
-    font-size: 0.82rem;
-    font-weight: 700;
-  }
-
-  .toolbar-select {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    color: inherit;
-    min-width: 230px;
-    outline: none;
-  }
-
-  .hero-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 24px;
-  }
-
-  .hero-summary-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 22px;
-    padding: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 20px 42px rgba(17, 35, 58, 0.08);
-  }
-
-  .hero-summary-card h4 {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-
-  .hero-summary-value {
-    font-family: var(--display);
-    font-size: 2rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--navy);
-    margin-bottom: 6px;
-  }
-
-  .hero-summary-note {
-    color: var(--muted);
-    font-size: 0.82rem;
-  }
-
-  .hub-wrap {
-    padding-bottom: 48px;
-  }
-
-  .player-grid-title {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 24px 0 14px;
-  }
-
-  .player-grid-title h2 {
-    font-family: var(--display);
-    font-size: 1.35rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-
-  .player-grid-title span {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  .player-roster-panel {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  .player-selector-card {
-    min-width: 300px;
-    flex: 1 1 320px;
-    padding: 14px 16px;
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.92);
-    box-shadow: 0 14px 30px rgba(17, 35, 58, 0.08);
-  }
-
-  .player-selector-card .selector-label {
-    display: block;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-
-  .player-selector-card .toolbar-select {
-    width: 100%;
-    min-width: 0;
-    padding: 14px 46px 14px 16px;
-    border-radius: 16px;
-    border: 1.5px solid var(--border);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7l5 6 5-6' stroke='%2310233a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-    color: var(--navy);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .player-selector-card .toolbar-select:focus {
-    outline: none;
-    border-color: rgba(21, 194, 178, 0.55);
-    box-shadow: 0 0 0 4px rgba(21, 194, 178, 0.14);
-  }
-
-  .player-cards-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  .player-card,
-  .overview-card {
-    position: relative;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
-    border-radius: 22px;
-    padding: 16px 18px;
-    box-shadow: 0 18px 40px rgba(17, 35, 58, 0.08);
-    border: 2px solid transparent;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-  }
-
-  .overview-card {
-    background: linear-gradient(145deg, rgba(17, 35, 58, 0.98), rgba(35, 68, 106, 0.95));
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  .overview-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255, 122, 24, 0.22), transparent 46%, rgba(21, 194, 178, 0.18));
-    pointer-events: none;
-  }
-
-  .player-card-top {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .hub-avatar {
-    flex-shrink: 0;
-    border-radius: 14px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #b6e9ff 0%, #d3d6ff 58%, #ffd0f0 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.15rem;
-    color: var(--navy);
-  }
-
-  .hub-avatar.sm { width: 48px; height: 48px; }
-  .hub-avatar.lg { width: 98px; height: 98px; border-radius: 22px; font-size: 2rem; }
-  .hub-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-  .player-info {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .player-info h3 {
-    font-size: 0.98rem;
-    font-weight: 800;
-    line-height: 1.15;
-    margin-bottom: 2px;
-  }
-
-  .player-info span {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--muted);
-    margin-bottom: 5px;
-  }
-
-  .tag-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 11px;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 800;
-    background: #e6f9f2;
-    color: var(--teal-dark);
-  }
-
-  .tag-badge.orange { background: var(--orange-lt); color: var(--orange); }
-  .tag-badge.red    { background: var(--red-lt); color: var(--red); }
-  .tag-badge.blue   { background: var(--blue-lt); color: var(--blue); }
-  .tag-badge.purple { background: var(--purple-lt); color: var(--purple); }
-
-  .player-rating {
-    margin-left: auto;
-    text-align: right;
-    position: relative;
-    z-index: 1;
-  }
-
-  .player-rating .score {
-    font-family: var(--display);
-    font-size: 1.7rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .player-rating .growth {
-    font-size: 0.72rem;
-    color: var(--teal);
-    font-weight: 800;
-  }
-
-  .overview-card .player-info h3,
-  .overview-card .player-info span,
-  .overview-card .player-rating .score,
-  .overview-card .player-rating .growth {
-    color: #fff;
-  }
-
-  .overview-card .tag-badge {
-    background: rgba(255, 255, 255, 0.16);
-    color: #fff;
-  }
-
-  .overview-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.14);
-    color: rgba(255, 255, 255, 0.84);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-
-  .detail-section {
-    display: grid;
-    grid-template-columns: 210px 1fr;
-    gap: 0;
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: 28px;
-    overflow: hidden;
-    box-shadow: 0 22px 46px rgba(17, 35, 58, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.92);
-    margin-bottom: 20px;
-  }
-
-  .detail-left {
-    background:
-      radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 40%),
-      linear-gradient(160deg, #172b46 0%, #10213a 55%, #0d1d32 100%);
-    padding: 28px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 10px;
-  }
-
-  .detail-left h3 {
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: #fff;
-  }
-
-  .detail-left .pos {
-    font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.58);
-  }
-
-  .rating-box {
-    width: 100%;
-    margin-top: 6px;
-    padding: 14px 16px;
-    border-radius: 18px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .rating-box .r-label {
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.46);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .rating-box .big {
-    font-family: var(--display);
-    font-size: 2.8rem;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1.1;
-  }
-
-  .rating-box .sub {
-    font-size: 0.72rem;
-    color: var(--teal);
-    font-weight: 800;
-  }
-
-  .stats-list { width: 100%; margin-top: 8px; }
-
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 0.75rem;
-  }
-
-  .stat-row .k { color: rgba(255, 255, 255, 0.46); }
-  .stat-row .v { color: #fff; font-weight: 700; text-align: right; }
-
-  .detail-right {
-    padding: 24px 28px;
-  }
-
-  .hero-strip {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-  }
-
-  .detail-right h2 {
-    font-family: var(--display);
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-
-  .detail-right .mini-note {
-    color: var(--muted);
-    font-size: 0.84rem;
-  }
-
-  .skill-tags-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-
-  .skill-tag-card {
-    border: 1.5px solid var(--border);
-    border-radius: 16px;
-    padding: 12px 14px;
-    background: linear-gradient(180deg, #fff, #fbfdff);
-  }
-
-  .skill-tag-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .skill-tag-icon-name { display: flex; align-items: center; gap: 8px; }
-
-  .skill-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.85rem;
-  }
-
-  .skill-icon.orange { background: var(--orange-lt); }
-  .skill-icon.red    { background: var(--red-lt); }
-  .skill-icon.blue   { background: var(--blue-lt); }
-  .skill-icon.purple { background: var(--purple-lt); }
-
-  .skill-name  { font-size: 0.8rem; font-weight: 800; color: var(--navy); }
-  .skill-level { font-size: 0.7rem; color: var(--muted); }
-
-  .skill-pct { font-size: 0.8rem; font-weight: 800; }
-  .skill-pct.orange { color: var(--orange); }
-  .skill-pct.red    { color: var(--red); }
-  .skill-pct.blue   { color: var(--blue); }
-  .skill-pct.purple { color: var(--purple); }
-
-  .skill-bar {
-    height: 6px;
-    border-radius: 999px;
-    background: var(--border);
-    overflow: hidden;
-  }
-
-  .skill-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.8s ease;
-  }
-
-  .skill-bar-fill.orange { background: var(--orange); }
-  .skill-bar-fill.red    { background: var(--red); }
-  .skill-bar-fill.blue   { background: var(--blue); }
-  .skill-bar-fill.purple { background: var(--purple); }
-
-  .ai-insight {
-    background: linear-gradient(135deg, rgba(122, 79, 228, 0.12), rgba(21, 194, 178, 0.12));
-    border-radius: 18px;
-    padding: 16px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    border: 1px solid rgba(122, 79, 228, 0.14);
-  }
-
-  .ai-insight-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.7);
-    font-size: 0.95rem;
-    flex-shrink: 0;
-  }
-
-  .ai-insight h4 {
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: var(--purple);
-    margin-bottom: 4px;
-  }
-
-  .ai-insight p {
-    font-size: 0.8rem;
-    color: #5a4a7a;
-  }
-
-  .chart-section {
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: 28px;
-    padding: 28px 32px;
-    box-shadow: 0 22px 46px rgba(17, 35, 58, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.92);
-  }
-
-  .chart-section h2 {
-    font-family: var(--display);
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--navy);
-    margin-bottom: 4px;
-  }
-
-  .chart-section .chart-sub {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-bottom: 24px;
-  }
-
-  .chart-wrapper {
-    position: relative;
-    height: 280px;
-  }
-
-  .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 24px;
-  }
-
-  .summary-card {
-    border-radius: 18px;
-    padding: 16px 18px;
-  }
-
-  .summary-card.red    { background: #fff5f5; border: 1.5px solid #fecaca; }
-  .summary-card.orange { background: #fffbeb; border: 1.5px solid #fde68a; }
-  .summary-card.teal   { background: #f0fdf9; border: 1.5px solid #99f6e4; }
-  .summary-card.purple { background: var(--purple-lt); border: 1.5px solid #d8b4fe; }
-
-  .summary-card .s-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-
-  .summary-card.red    .s-label { color: var(--red); }
-  .summary-card.orange .s-label { color: var(--orange); }
-  .summary-card.teal   .s-label { color: var(--teal-dark); }
-  .summary-card.purple .s-label { color: var(--purple); }
-
-  .summary-card .s-value {
-    font-family: var(--display);
-    font-size: 2rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  .summary-card.red    .s-value { color: var(--red); }
-  .summary-card.orange .s-value { color: var(--orange); }
-  .summary-card.teal   .s-value { color: var(--teal-dark); }
-  .summary-card.purple .s-value { color: var(--purple); }
-
-  .summary-card .s-growth {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--teal);
-  }
-
-  @media (max-width: 900px) {
-    .hero-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-
-  @media (max-width: 768px) {
-    .hub-hero { padding-top: 30px; }
-    .detail-section { grid-template-columns: 1fr; }
-    .skill-tags-grid { grid-template-columns: 1fr; }
-    .hero-summary-grid { grid-template-columns: 1fr; }
-    .summary-cards { grid-template-columns: 1fr; }
-    .detail-right { padding: 20px 18px; }
-    .chart-section { padding: 22px 18px; }
-    .hub-hero h1 { font-size: 2rem; }
-  }
-</style>
-
 <div class="hub-shell">
-  <section class="hub-hero">
+  <section class="container hub-hero">
     <div class="hub-kicker">Evolution Hub</div>
     <h1>AI-Driven Player Evolution Hub</h1>
     <p>Track player development across kills, aces, blocks, and monthly progression. Switch between the full team view and individual players to compare growth side by side.</p>
@@ -732,7 +46,7 @@
     </div>
   </section>
 
-  <div class="hub-wrap">
+  <div class="container hub-wrap">
     <div class="player-grid-title">
       <div>
         <h2>Players</h2>
@@ -741,7 +55,7 @@
     </div>
 
     <div class="player-roster-panel">
-      <div class="overview-card" style="cursor: default;">
+      <div class="overview-card">
         <div class="player-card-top">
           <div class="hub-avatar sm">
             {% if team_overview.avatar %}
@@ -804,7 +118,7 @@
           </div>
           <div class="stat-row">
             <span class="k">Growth Trend</span>
-            <span class="v" style="color:#15c2b2;">Accelerating</span>
+            <span class="v" id="p-trend-label">Accelerating</span>
           </div>
         </div>
       </div>
@@ -830,9 +144,9 @@
       </div>
     </div>
 
-    <div class="chart-section" style="margin-top:20px;">
+    <div class="chart-section">
       <h2>Monthly Development Chart</h2>
-      <p class="chart-sub" id="chart-subtitle">Track skill progression over time - September 2025 to February 2026</p>
+      <p class="chart-sub" id="chart-subtitle">Track skill progression over time.</p>
       <div class="chart-wrapper">
         <canvas id="devChart"></canvas>
       </div>
@@ -875,17 +189,17 @@ let playerInsights = {};
 const playerSelector = document.getElementById("player-roster-selector");
 
 function updateHeroSummary(player) {
-  document.getElementById('hero-team-rating').textContent = `${player.rating ?? 0}%`;
-  document.getElementById('hero-team-label').textContent = player.id === 'all' ? 'All players overview' : player.name;
-  document.getElementById('hero-skill-tags').textContent = player.skills?.length ?? 0;
-  document.getElementById('hero-top-tag').textContent = player.primary_tag || '--';
-  document.getElementById('hero-top-tag-note').textContent = player.tag_icon ? `${player.tag_icon} ${player.primary_tag}` : 'Most dominant trait';
-  document.getElementById('hero-trend').textContent = `+${player.growth ?? 0}%`;
-  document.getElementById('hero-trend-note').textContent = player.id === 'all' ? 'Team-wide momentum' : 'Season momentum';
+  document.getElementById("hero-team-rating").textContent = `${player.rating ?? 0}%`;
+  document.getElementById("hero-team-label").textContent = player.id === "all" ? "All players overview" : player.name;
+  document.getElementById("hero-skill-tags").textContent = player.skills?.length ?? 0;
+  document.getElementById("hero-top-tag").textContent = player.primary_tag || "--";
+  document.getElementById("hero-top-tag-note").textContent = player.tag_icon ? `${player.tag_icon} ${player.primary_tag}` : "Most dominant trait";
+  document.getElementById("hero-trend").textContent = `+${player.growth ?? 0}%`;
+  document.getElementById("hero-trend-note").textContent = player.id === "all" ? "Team-wide momentum" : "Season momentum";
 }
 
 function lastVal(arr) {
-  for (let i = arr.length - 1; i >= 0; i--) {
+  for (let i = arr.length - 1; i >= 0; i -= 1) {
     if (arr[i] > 0) return arr[i];
   }
   return 0;
@@ -897,6 +211,14 @@ function growth(arr) {
   return Math.round(last - first);
 }
 
+function trendLabel(player) {
+  const ratingGrowth = growth((player.monthly_stats || {}).rating || [0, 0, 0, 0, 0, 0]);
+  if (ratingGrowth >= 15) return "Accelerating";
+  if (ratingGrowth >= 5) return "Improving";
+  if (ratingGrowth <= -5) return "Cooling";
+  return "Steady";
+}
+
 function selectPlayer(playerId) {
   const player = playerMap.get(String(playerId));
   if (!player) return;
@@ -905,44 +227,45 @@ function selectPlayer(playerId) {
     playerSelector.value = String(playerId);
   }
 
-  const img = document.getElementById('d-avatar-img');
-  const fallback = document.getElementById('d-avatar-fallback');
+  const img = document.getElementById("d-avatar-img");
+  const fallback = document.getElementById("d-avatar-fallback");
 
   if (player.avatar) {
     img.src = player.avatar;
-    img.style.display = 'block';
-    fallback.style.display = 'none';
+    img.style.display = "block";
+    fallback.style.display = "none";
   } else {
-    img.src = '';
-    img.style.display = 'none';
-    fallback.style.display = 'inline';
+    img.src = "";
+    img.style.display = "none";
+    fallback.style.display = "inline";
   }
 
-  document.getElementById('p-name').textContent = player.name || '--';
-  document.getElementById('p-position').textContent = player.position || '--';
-  document.getElementById('p-rating').textContent = player.rating ?? '--';
-  document.getElementById('p-growth').textContent = `+${player.growth ?? 0}% this season`;
-  document.getElementById('detail-title').textContent = player.id === 'all' ? 'All Players - Evolution Hub' : 'Player DNA - Skill Tags';
-  document.getElementById('detail-subtitle').textContent = player.id === 'all'
-    ? 'A team-wide view that blends every player into one growth map.'
-    : 'Breakdown of the selected player\'s strongest traits.';
-  document.getElementById('detail-meta').textContent = player.id === 'all'
-    ? 'Compare the full squad, then switch to a player for detail.'
+  document.getElementById("p-name").textContent = player.name || "--";
+  document.getElementById("p-position").textContent = player.position || "--";
+  document.getElementById("p-rating").textContent = player.rating ?? "--";
+  document.getElementById("p-growth").textContent = `+${player.growth ?? 0}% this season`;
+  document.getElementById("p-trend-label").textContent = trendLabel(player);
+  document.getElementById("detail-title").textContent = player.id === "all" ? "All Players - Evolution Hub" : "Player DNA - Skill Tags";
+  document.getElementById("detail-subtitle").textContent = player.id === "all"
+    ? "A team-wide view that blends every player into one growth map."
+    : "Breakdown of the selected player's strongest traits.";
+  document.getElementById("detail-meta").textContent = player.id === "all"
+    ? "Compare the full squad, then switch to a player for detail."
     : `${player.skills?.length ?? 0} active tags and season-long monthly performance.`;
 
-  const tagEl = document.getElementById('p-primary-tag');
-  tagEl.textContent = `${player.tag_icon || ''} ${player.primary_tag || ''}`.trim();
-  tagEl.className = `tag-badge ${player.tag_color || ''}`.trim();
+  const tagEl = document.getElementById("p-primary-tag");
+  tagEl.textContent = `${player.tag_icon || ""} ${player.primary_tag || ""}`.trim();
+  tagEl.className = `tag-badge ${player.tag_color || ""}`.trim();
 
   const skills = Array.isArray(player.skills) ? player.skills : [];
-  document.getElementById('p-skill-count').textContent = skills.length;
+  document.getElementById("p-skill-count").textContent = skills.length;
 
-  const container = document.getElementById('skill-tags');
-  container.innerHTML = '';
+  const container = document.getElementById("skill-tags");
+  container.innerHTML = "";
 
   skills.forEach(skill => {
-    const div = document.createElement('div');
-    div.className = 'skill-tag-card';
+    const div = document.createElement("div");
+    div.className = "skill-tag-card";
     div.innerHTML = `
       <div class="skill-tag-top">
         <div class="skill-tag-icon-name">
@@ -962,10 +285,10 @@ function selectPlayer(playerId) {
   });
 
   const insight = playerInsights[player.id];
-  document.getElementById('p-insight').textContent =
-    player.id === 'all'
-      ? `The full team hub is selected. ${player.primary_tag || 'Performance'} is currently the strongest shared theme.`
-      : insight ?? (skills.length ? `${player.name}'s insight is loading...` : 'No insight available.');
+  document.getElementById("p-insight").textContent =
+    player.id === "all"
+      ? `The full team hub is selected. ${player.primary_tag || "Performance"} is currently the strongest shared theme.`
+      : insight ?? (skills.length ? `${player.name}'s insight is loading...` : "No insight available.");
 
   const stats = player.monthly_stats || {
     attack_eff: [0, 0, 0, 0, 0, 0],
@@ -981,10 +304,10 @@ function selectPlayer(playerId) {
   chart.update();
 
   const sets = [
-    { key: 'attack_eff', valId: 'sc-attack', growId: 'sc-attack-g' },
-    { key: 'serving_ace', valId: 'sc-ace', growId: 'sc-ace-g' },
-    { key: 'blocking', valId: 'sc-block', growId: 'sc-block-g' },
-    { key: 'rating', valId: 'sc-rating', growId: 'sc-rating-g' },
+    { key: "attack_eff", valId: "sc-attack", growId: "sc-attack-g" },
+    { key: "serving_ace", valId: "sc-ace", growId: "sc-ace-g" },
+    { key: "blocking", valId: "sc-block", growId: "sc-block-g" },
+    { key: "rating", valId: "sc-rating", growId: "sc-rating-g" },
   ];
 
   sets.forEach(({ key, valId, growId }) => {
@@ -992,31 +315,31 @@ function selectPlayer(playerId) {
     const lv = lastVal(arr);
     const gr = growth(arr);
     document.getElementById(valId).textContent = `${lv}%`;
-    document.getElementById(growId).textContent = `${gr >= 0 ? '+' : ''}${gr}% Since Sep`;
+    document.getElementById(growId).textContent = `${gr >= 0 ? "+" : ""}${gr}% Since Sep`;
   });
 
   updateHeroSummary(player);
 }
 
 function buildChart() {
-  const ctx = document.getElementById('devChart').getContext('2d');
+  const ctx = document.getElementById("devChart").getContext("2d");
   const pointStyle = {
-    pointStyle: 'circle',
+    pointStyle: "circle",
     pointRadius: 5,
     pointBorderWidth: 2,
-    pointBackgroundColor: '#fff'
+    pointBackgroundColor: "#fff",
   };
 
   chart = new Chart(ctx, {
-    type: 'line',
+    type: "line",
     data: {
-      labels: ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'],
+      labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"],
       datasets: [
-        { label: 'Attack Efficiency', data: [], borderColor: '#ff4d57', borderWidth: 2.5, pointBorderColor: '#ff4d57', fill: false, tension: 0.35, ...pointStyle },
-        { label: 'Serving Ace %', data: [], borderColor: '#ff7a18', borderWidth: 2.5, pointBorderColor: '#ff7a18', fill: false, tension: 0.35, ...pointStyle },
-        { label: 'Blocking', data: [], borderColor: '#15c2b2', borderWidth: 2.5, pointBorderColor: '#15c2b2', fill: false, tension: 0.35, ...pointStyle },
-        { label: 'Overall Rating', data: [], borderColor: '#7a4fe4', borderWidth: 2.5, pointBorderColor: '#7a4fe4', fill: false, tension: 0.35, ...pointStyle },
-      ]
+        { label: "Attack Efficiency", data: [], borderColor: "#ff5c7a", borderWidth: 2.5, pointBorderColor: "#cf3c56", fill: false, tension: 0.35, ...pointStyle },
+        { label: "Serving Ace %", data: [], borderColor: "#f4b027", borderWidth: 2.5, pointBorderColor: "#b68009", fill: false, tension: 0.35, ...pointStyle },
+        { label: "Blocking", data: [], borderColor: "#20a6c7", borderWidth: 2.5, pointBorderColor: "#188fb0", fill: false, tension: 0.35, ...pointStyle },
+        { label: "Overall Rating", data: [], borderColor: "#7a5be6", borderWidth: 2.5, pointBorderColor: "#6a3dcf", fill: false, tension: 0.35, ...pointStyle },
+      ],
     },
     options: {
       responsive: true,
@@ -1024,20 +347,33 @@ function buildChart() {
       plugins: {
         legend: {
           display: true,
-          position: 'bottom',
-          labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, font: { size: 12, weight: '600' } }
-        }
+          position: "bottom",
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            padding: 20,
+            font: { size: 12, weight: "700" },
+            color: "#35556b",
+          },
+        },
       },
       scales: {
         y: {
           beginAtZero: true,
           max: 100,
-          grid: { color: '#e0eaf2', borderDash: [4, 4] },
-          ticks: { stepSize: 25, callback: v => v }
+          grid: { color: "#deecf3", borderDash: [4, 4] },
+          ticks: {
+            stepSize: 25,
+            color: "#4d657c",
+            callback: v => v,
+          },
         },
-        x: { grid: { color: '#e0eaf2', borderDash: [4, 4] } }
-      }
-    }
+        x: {
+          grid: { color: "#eef5f8", borderDash: [4, 4] },
+          ticks: { color: "#4d657c" },
+        },
+      },
+    },
   });
 }
 
@@ -1045,35 +381,37 @@ function buildSelector() {
   playerSelector.innerHTML = [
     `<option value="all">All players overview</option>`,
     ...players.map(player => `<option value="${player.id}">${player.name}</option>`),
-  ].join('');
-  playerSelector.value = 'all';
+  ].join("");
+  playerSelector.value = "all";
   playerSelector.size = 1;
-  playerSelector.addEventListener('change', () => selectPlayer(playerSelector.value));
-  document.getElementById('player-count').textContent = players.length;
+  playerSelector.addEventListener("change", () => selectPlayer(playerSelector.value));
+  document.getElementById("player-count").textContent = players.length;
 }
 
 async function loadInsights() {
   try {
-    const res = await fetch('/ai-hub/generate-insights/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ players })
+    const res = await fetch("/ai-hub/generate-insights/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ players }),
     });
 
     playerInsights = await res.json();
-
-    selectPlayer(playerSelector.value || 'all');
+    selectPlayer(playerSelector.value || "all");
   } catch (e) {
-    console.warn('AI insights unavailable:', e);
+    console.warn("AI insights unavailable:", e);
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   buildSelector();
   buildChart();
-  selectPlayer('all');
+  selectPlayer("all");
   loadInsights();
 });
 </script>
+{% endblock %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}

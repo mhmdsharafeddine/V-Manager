@@ -403,6 +403,9 @@ class AccountSettingsForm(forms.Form):
             if self.cleaned_data.get("profile_photo"):
                 profile.profile_photo = self.cleaned_data["profile_photo"]
 
+            if update_password and profile.must_change_password:
+                profile.must_change_password = False
+
             profile.save()
 
         return self.user

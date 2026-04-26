@@ -1,682 +1,242 @@
 {% extends "base.html" %}
 {% load static %}
+
+{% block title %}Match Readiness | V-Manager{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'matchreadiness/matchreadiness.css' %}?v=4">
+{% endblock %}
+
+{% block body_class %}matchreadiness-page{% endblock %}
+
 {% block content %}
-
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
-    background: #f0f4f8;
-    color: #1a2b3c;
-  }
-
-  /* ─── HERO ─────────────────────────────────────── */
-  .mrs-hero {
-    background: transparent;
-    padding: 48px 0 36px;
-  }
-
-  .mrs-hero-inner {
-    max-width: 900px;
-    margin: auto;
-    padding: 0 24px;
-    position: relative;
-  }
-  .mrs-hero h1 {
-    font-size: 2.6rem;
-    font-weight: 800;
-    color: #1a2b3c;
-    margin-bottom: 12px;
-    letter-spacing: -0.5px;
-  }
-  .mrs-hero p {
-    font-size: 0.95rem;
-    color: #4a6070;
-    max-width: 480px;
-    line-height: 1.6;
-  }
-
-  /* ─── NEXT MATCH BANNER ─────────────────────────── */
-  .mrs-match-banner {
-    max-width: 900px;
-    margin: 24px auto 0;
-    padding: 0 24px;
-    position: relative;
-  }
-  .mrs-match-card {
-    background: linear-gradient(135deg, #1ab5a3, #0e9f8e);
-    border-radius: 16px;
-    padding: 18px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: white;
-    box-shadow: 0 8px 24px rgba(26,181,163,0.3);
-  }
-  .mrs-match-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    opacity: 0.85;
-    margin-bottom: 4px;
-  }
-  .mrs-match-vs {
-    font-size: 1.2rem;
-    font-weight: 700;
-  }
-  .mrs-match-meta {
-    font-size: 0.8rem;
-    opacity: 0.85;
-    margin-top: 4px;
-  }
-  .mrs-match-meta svg { vertical-align: middle; margin-right: 4px; }
-  .mrs-view-btn {
-    background: white;
-    color: #0e9f8e;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: box-shadow 0.2s;
-  }
-  .mrs-view-btn:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-
-  /* ─── TOOLBAR ──────────────────────────────────── */
-  .mrs-toolbar {
-    max-width: 900px;
-    margin: 20px auto 0;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .mrs-tabs {
-    display: flex;
-    gap: 6px;
-    background: white;
-    border-radius: 10px;
-    padding: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  }
-  .mrs-tab {
-    padding: 7px 16px;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    color: #6b7f8e;
-    border: none;
-    background: transparent;
-    transition: all 0.2s;
-  }
-  .mrs-tab.active {
-    background: #1ab5a3;
-    color: white;
-  }
-  .mrs-upload-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: white;
-    border: 1.5px solid #d0dce6;
-    border-radius: 10px;
-    padding: 8px 18px;
-    font-size: 0.83rem;
-    font-weight: 600;
-    color: #3a5060;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  .mrs-upload-btn:hover { border-color: #1ab5a3; color: #1ab5a3; }
-
-  /* ─── PLAYER CARDS ─────────────────────────────── */
-  .mrs-list {
-    max-width: 900px;
-    margin: 20px auto 0;
-    padding: 0 24px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .mrs-card {
-    background: white;
-    border-radius: 16px;
-    padding: 18px 20px;
-    display: grid;
-    grid-template-columns: 180px 1fr auto;
-    gap: 16px;
-    align-items: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    transition: box-shadow 0.2s, transform 0.2s;
-  }
-  .mrs-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-1px); }
-
-  /* Left column */
-  .mrs-player-info { display: flex; align-items: center; gap: 12px; }
-  .mrs-avatar {
-    width: 52px; height: 52px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #d0e8f0, #b0d0e0);
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .mrs-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .mrs-player-name { font-size: 0.97rem; font-weight: 700; color: #1a2b3c; }
-  .mrs-player-pos { font-size: 0.78rem; color: #6b7f8e; margin-top: 2px; }
-  .mrs-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 5px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-  .mrs-badge::before { content: '●'; font-size: 8px; }
-  .mrs-badge.healthy  { background: #e6f9f2; color: #0da56a; }
-  .mrs-badge.healthy::before  { color: #0da56a; }
-  .mrs-badge.recovering { background: #fff0f0; color: #e03030; }
-  .mrs-badge.recovering::before { color: #e03030; }
-  .mrs-badge.minor { background: #fff8e6; color: #d08000; }
-  .mrs-badge.minor::before { color: #d08000; }
-
-  /* Middle column */
-  
-  .mrs-readiness-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
-  .mrs-readiness-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-    color: #6b7f8e;
-    font-weight: 600;
-  }
-  .mrs-readiness-label svg { color: #1ab5a3; }
-  .mrs-score-pct {
-    font-size: 1.35rem;
-    font-weight: 800;
-  }
-  .score-green  { color: #0da56a; }
-  .score-yellow { color: #f0a500; }
-  .score-orange { color: #e06000; }
-  .score-red    { color: #e03030; }
-
-  .mrs-bar-track {
-    height: 8px;
-    background: #e8eef4;
-    border-radius: 99px;
-    margin-bottom: 12px;
-    overflow: hidden;
-  }
-  .mrs-bar-fill {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 0.6s ease;
-  }
-
-  .mrs-stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
- 
-  .mrs-stat-label {
-    font-size: 0.72rem;
-    color: #8a9eae;
-    font-weight: 600;
-    margin-bottom: 2px;
-  }
-  .mrs-stat-val {
-    font-size: 1rem;
-    font-weight: 800;
-  }
-  .val-green  { color: #0da56a; }
-  .val-orange { color: #f0a500; }
-  .val-blue   { color: #1ab5a3; }
-
-  /* Right column */
-  .mrs-right {
-    text-align: right;
-    min-width: 120px;
-  }
-  .mrs-matches-info {
-    font-size: 0.78rem;
-    color: #6b7f8e;
-    margin-bottom: 8px;
-    line-height: 1.5;
-  }
-  .mrs-details-btn {
-    border: 1.5px solid #d0dce6;
-    border-radius: 8px;
-    background: white;
-    color: #3a5060;
-    font-size: 0.78rem;
-    font-weight: 700;
-    padding: 7px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .mrs-details-btn:hover { border-color: #1ab5a3; color: #1ab5a3; }
-
-  /* ─── HOW IT WORKS ─────────────────────────────── */
-  .mrs-how {
-    background: #f0f9f7;
-    padding: 60px 24px;
-    text-align: center;
-  }
-  .mrs-how h2 {
-    font-size: 1.9rem;
-    font-weight: 800;
-    margin-bottom: 10px;
-    color: #1a2b3c;
-  }
-  .mrs-how p {
-    color: #5a7080;
-    font-size: 0.92rem;
-    max-width: 480px;
-    margin: 0 auto 36px;
-    line-height: 1.6;
-  }
-  .mrs-how-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    max-width: 860px;
-    margin: auto;
-  }
-  .mrs-how-card {
-    background: white;
-    border-radius: 16px;
-    padding: 24px 20px;
-    text-align: left;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
-  .mrs-how-icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 14px;
-    font-size: 1.2rem;
-  }
-  .mrs-how-title {
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #1a2b3c;
-    margin-bottom: 8px;
-  }
-  .mrs-how-desc {
-    font-size: 0.78rem;
-    color: #6b7f8e;
-    line-height: 1.6;
-  }
-
-  /* ─── FOOTER ────────────────────────────────────── */
-  .mrs-footer {
-    background: #0d1e2c;
-    color: #8a9eae;
-    padding: 48px 24px 32px;
-  }
-  .mrs-footer-inner {
-    max-width: 900px;
-    margin: auto;
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1fr;
-    gap: 32px;
-  }
-  .mrs-footer-brand .brand-name {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: white;
-    margin-bottom: 6px;
-  }
-  .mrs-footer-brand p { font-size: 0.78rem; line-height: 1.6; }
-  .mrs-footer-col h4 { color: white; font-size: 0.85rem; font-weight: 700; margin-bottom: 14px; }
-  .mrs-footer-col a {
-    display: block;
-    color: #8a9eae;
-    text-decoration: none;
-    font-size: 0.78rem;
-    margin-bottom: 8px;
-    transition: color 0.2s;
-  }
-  .mrs-footer-col a:hover { color: #1ab5a3; }
-
-  /* ─── MODALS ────────────────────────────────────── */
-  .mrs-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(10,20,30,0.55);
-    backdrop-filter: blur(4px);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-  }
-  .mrs-overlay.open { display: flex; }
-
-  .mrs-modal {
-    background: white;
-    border-radius: 20px;
-    padding: 32px;
-    width: 100%;
-    max-width: 480px;
-    margin: 16px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.2);
-    position: relative;
-    animation: modalIn 0.2s ease;
-  }
-  @keyframes modalIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
-  }
-  .mrs-modal-close {
-    position: absolute;
-    top: 16px; right: 16px;
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    border: none;
-    background: #f0f4f8;
-    cursor: pointer;
-    font-size: 1rem;
-    color: #6b7f8e;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.2s;
-  }
-  .mrs-modal-close:hover { background: #e0e8f0; }
-
-  .mrs-modal-title {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: #1a2b3c;
-    margin-bottom: 4px;
-  }
-  .mrs-modal-sub {
-    font-size: 0.82rem;
-    color: #8a9eae;
-    margin-bottom: 24px;
-  }
-
-  .mrs-modal-section {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #8a9eae;
-    margin: 20px 0 10px;
-  }
-
-  .mrs-modal-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .mrs-modal-stat {
-    background: #f5f8fb;
-    border-radius: 12px;
-    padding: 14px 10px;
-    text-align: center;
-  }
-  .mrs-modal-stat-val {
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: #1a2b3c;
-  }
-  .mrs-modal-stat-lbl {
-    font-size: 0.72rem;
-    color: #8a9eae;
-    font-weight: 600;
-    margin-top: 3px;
-  }
-
-  .mrs-modal-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid #f0f4f8;
-    font-size: 0.85rem;
-  }
-  .mrs-modal-row:last-child { border-bottom: none; }
-  .mrs-modal-row-label { color: #6b7f8e; font-weight: 600; }
-  .mrs-modal-row-val   { color: #1a2b3c; font-weight: 700; }
-
-  .mrs-modal-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-  .mrs-modal-badge.healthy    { background: #e6f9f2; color: #0da56a; }
-  .mrs-modal-badge.minor      { background: #fff8e6; color: #d08000; }
-  .mrs-modal-badge.recovering { background: #fff0f0; color: #e03030; }
-
-  .mrs-match-modal-header {
-    background: linear-gradient(135deg, #1ab5a3, #0e9f8e);
-    border-radius: 12px;
-    padding: 16px 18px;
-    color: white;
-    margin-bottom: 20px;
-  }
-  .mrs-match-modal-header .lbl { font-size: 0.7rem; font-weight: 700; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
-  .mrs-match-modal-header .vs  { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
-
-  /* ─── RESPONSIVE ────────────────────────────────── */
-  @media (max-width: 640px) {
-    .mrs-card { grid-template-columns: 1fr; }
-    .mrs-how-grid { grid-template-columns: 1fr; }
-    .mrs-footer-inner { grid-template-columns: 1fr 1fr; }
-    .mrs-hero h1 { font-size: 1.8rem; }
-  }
-</style>
-
-<!-- HERO -->
-<div class="mrs-hero">
-  <div class="mrs-hero-inner">
-    <h1>Match Readiness Score</h1>
-    <p>Assess player readiness at a glance with our Machine Learning Model based on attendance (40%), recent performance (40%), and injury status (20%). Make data-driven lineup decisions with confidence.</p>
-  </div>
-</div>
-
-<!-- NEXT MATCH BANNER -->
-<div class="mrs-match-banner">
-  {% if next_match %}
-  <div class="mrs-match-card">
-    <div>
-      <div class="mrs-match-label">🏆 Next Match</div>
-      <div class="mrs-match-vs">{{ next_match.title }}</div>
-      <div class="mrs-match-meta">
-        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        {{ next_match.scheduled_at|date:"M j, Y" }} at {{ next_match.scheduled_at|time:"g:i A" }}{% if next_match.location %} • {{ next_match.location }}{% endif %}
+<main class="mrs-shell">
+  <div class="container">
+    <section class="mrs-hero">
+      <span class="mrs-kicker">Readiness Hub</span>
+      <h1>Match Readiness Score</h1>
+      <p>
+        Assess player readiness at a glance using the club's match-readiness model,
+        built from attendance, recent performance, and injury status so coaches can
+        make sharper lineup decisions with confidence.
+      </p>
+      <div class="mrs-hero-toolbar" aria-label="Readiness factors">
+        <span class="mrs-chip">Attendance 40%</span>
+        <span class="mrs-chip">Performance 40%</span>
+        <span class="mrs-chip">Health 20%</span>
       </div>
-    </div>
-    <button class="mrs-view-btn" onclick="openMatchModal()">View Match Details</button>
-  </div>
-  {% else %}
-  <div class="mrs-match-card" style="background: linear-gradient(135deg, #8a9eae, #6b7f8e);">
-    <div>
-      <div class="mrs-match-label">📅 Next Match</div>
-      <div class="mrs-match-vs">No upcoming matches scheduled</div>
-    </div>
-  </div>
-  {% endif %}
-</div>
+    </section>
 
-<!-- TOOLBAR -->
-<div class="mrs-toolbar">
-  <div class="mrs-tabs">
-    <button class="mrs-tab active" onclick="filterPlayers('all', this)">Full roster</button>
-    <button class="mrs-tab" onclick="filterPlayers('ready', this)">Match Ready (85%+)</button>
-    <button class="mrs-tab" onclick="filterPlayers('not_ready', this)">Not Ready</button>
-  </div>
-</div>
-
-<!-- PLAYER LIST -->
-<div class="mrs-list" id="playerList">
-  {% for p in players %}
-  {% with score=p.readiness %}
-  <div class="mrs-card" data-readiness="{{ score }}">
-
-    <!-- LEFT: player info -->
-    <div class="mrs-player-info">
-      <div class="mrs-avatar">
-        {% if p.avatar %}
-          <img src="{{ p.avatar }}" alt="{{ p.name }}">
-        {% endif %}
+    <section class="mrs-banner-wrap" aria-label="Next match">
+      {% if next_match %}
+      <div class="mrs-match-card">
+        <div class="mrs-match-copy">
+          <div class="mrs-match-label">Upcoming Match</div>
+          <div class="mrs-match-vs">{{ next_match.title }}</div>
+          <div class="mrs-match-meta">
+            {{ next_match.scheduled_at|date:"M j, Y" }} at {{ next_match.scheduled_at|time:"g:i A" }}
+            {% if next_match.location %} | {{ next_match.location }}{% endif %}
+          </div>
+        </div>
+        <button class="mrs-btn" type="button" onclick="openMatchModal()">View Match Details</button>
       </div>
-      <div>
-        <div class="mrs-player-name">{{ p.name }}</div>
-        <div class="mrs-player-pos">{{ p.position }}</div>
-        <span class="mrs-badge {{ p.health_class }}">{{ p.health }}</span>
-      </div>
-    </div>
-
-    <!-- MIDDLE: metrics -->
-    <div class="mrs-metrics">
-      <div class="mrs-readiness-row">
-        <span class="mrs-readiness-label">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1ab5a3" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          Match Readiness
-        </span>
-        <span class="mrs-score-pct {% if score >= 85 %}score-green{% elif score >= 75 %}score-yellow{% else %}score-orange{% endif %}">
-          {{ score }}%
-        </span>
-      </div>
-      <div class="mrs-bar-track">
-        <div class="mrs-bar-fill"
-          style="width:{{ score }}%; background:{% if score >= 85 %}#0da56a{% elif score >= 75 %}#f0a500{% else %}#e06000{% endif %};">
+      {% else %}
+      <div class="mrs-match-card is-empty">
+        <div class="mrs-match-copy">
+          <div class="mrs-match-label">Upcoming Match</div>
+          <div class="mrs-match-vs">No upcoming matches scheduled yet</div>
+          <div class="mrs-match-meta">Once a match is scheduled, this panel will spotlight the next fixture for quick selection planning.</div>
         </div>
       </div>
-      <div class="mrs-stats-row">
-        <div class="mrs-stat-item">
-          <div class="mrs-stat-label">Attendance</div>
-          <div class="mrs-stat-val val-blue">{{ p.attendance }}%</div>
+      {% endif %}
+    </section>
+
+    <section class="mrs-toolbar" aria-label="Roster filters">
+      <div class="mrs-toolbar-inner">
+        <div class="mrs-tabs" role="tablist" aria-label="Player readiness filters">
+          <button class="mrs-tab active" type="button" role="tab" aria-selected="true" onclick="filterPlayers('all', this)">Full roster</button>
+          <button class="mrs-tab" type="button" role="tab" aria-selected="false" onclick="filterPlayers('ready', this)">Match ready (85%+)</button>
+          <button class="mrs-tab" type="button" role="tab" aria-selected="false" onclick="filterPlayers('not_ready', this)">Needs attention</button>
         </div>
-        <div class="mrs-stat-item">
-          <div class="mrs-stat-label">Performance</div>
-          <div class="mrs-stat-val val-orange">{{ p.performance }}%</div>
+        <div class="mrs-toolbar-note">{{ players|length }} player{{ players|length|pluralize }} in view</div>
+      </div>
+    </section>
+
+    <section class="mrs-list" id="playerList" aria-label="Player readiness list">
+      {% for p in players %}
+      {% with score=p.readiness %}
+      <article class="mrs-card" data-readiness="{{ score }}">
+        <div class="mrs-player-info">
+          <div class="mrs-avatar" aria-hidden="true">
+            {% if p.avatar %}
+            <img src="{{ p.avatar }}" alt="{{ p.name }}">
+            {% else %}
+            {{ p.name|slice:":1"|upper }}
+            {% endif %}
+          </div>
+          <div class="mrs-player-copy">
+            <div class="mrs-player-name">{{ p.name }}</div>
+            <div class="mrs-player-pos">{{ p.position }}</div>
+            <span class="mrs-badge {{ p.health_class }}">{{ p.health }}</span>
+          </div>
         </div>
-        <div class="mrs-stat-item">
-          <div class="mrs-stat-label">Health</div>
-          <div class="mrs-stat-val val-green">{{ p.health_score }}%</div>
+
+        <div class="mrs-metrics">
+          <div class="mrs-readiness-row">
+            <span class="mrs-readiness-label">
+              <span class="mrs-readiness-dot" aria-hidden="true"></span>
+              Match Readiness
+            </span>
+            <span class="mrs-score-pct {% if score >= 85 %}score-green{% elif score >= 75 %}score-yellow{% else %}score-orange{% endif %}">
+              {{ score }}%
+            </span>
+          </div>
+          <div class="mrs-bar-track" aria-hidden="true">
+            <div class="mrs-bar-fill"
+              style="width: {{ score }}%; background: {% if score >= 85 %}#158f7f{% elif score >= 75 %}#f4b027{% else %}#d26a1f{% endif %};">
+            </div>
+          </div>
+          <div class="mrs-stats-row">
+            <div class="mrs-stat-item mrs-stat-item-attendance">
+              <div class="mrs-stat-label">Attendance</div>
+              <div class="mrs-stat-val {% if p.attendance > 85 %}score-green{% elif p.attendance >= 50 %}score-yellow{% else %}score-red{% endif %}">{{ p.attendance }}%</div>
+            </div>
+            <div class="mrs-stat-item mrs-stat-item-performance">
+              <div class="mrs-stat-label">Performance</div>
+              <div class="mrs-stat-val {% if p.performance > 85 %}score-green{% elif p.performance >= 50 %}score-yellow{% else %}score-red{% endif %}">{{ p.performance }}%</div>
+            </div>
+            <div class="mrs-stat-item mrs-stat-item-health">
+              <div class="mrs-stat-label">Health</div>
+              <div class="mrs-stat-val {% if p.health_score > 85 %}score-green{% elif p.health_score >= 50 %}score-yellow{% else %}score-red{% endif %}">{{ p.health_score }}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mrs-right">
+          <div class="mrs-matches-info">
+            {{ p.matches_played }} matches played<br>
+            Last match: {{ p.last_match }}
+          </div>
+          <button
+            class="mrs-btn-ghost"
+            type="button"
+            onclick="openPlayerModal(
+              '{{ p.name|escapejs }}',
+              '{{ p.position|escapejs }}',
+              '{{ p.health|escapejs }}',
+              '{{ p.health_class|escapejs }}',
+              {{ p.kills }}, {{ p.aces }}, {{ p.blocks }},
+              {{ p.matches_played }}, '{{ p.last_match|escapejs }}',
+              {{ p.attendance }}, {{ p.readiness }},
+              '{{ p.avatar|escapejs }}'
+            )"
+          >
+            View Details
+          </button>
+        </div>
+      </article>
+      {% endwith %}
+      {% empty %}
+      <div class="mrs-empty">
+        <h2>No players available yet</h2>
+        <p>
+          This view will populate once approved players have attendance and performance
+          records tied to the current team.
+        </p>
+      </div>
+      {% endfor %}
+    </section>
+
+    <section class="mrs-how" aria-label="How the readiness score works">
+      <div class="mrs-how-panel">
+        <div class="mrs-how-head">
+          <h2>How the readiness score works</h2>
+          <p>
+            The Match Readiness Score uses a ML model to give coaches a clear, objective view of each
+            player's readiness.
+          </p>
+        </div>
+        <div class="mrs-how-grid">
+          <article class="mrs-how-card">
+            <div class="mrs-how-icon is-teal" aria-hidden="true">&#10003;</div>
+            <div class="mrs-how-title">Attendance (40%)</div>
+            <div class="mrs-how-desc">
+              Training session attendance over the past cycle. Consistent participation is key to match readiness.
+            </div>
+          </article>
+          <article class="mrs-how-card">
+            <div class="mrs-how-icon is-gold" aria-hidden="true">&#10022;</div>
+            <div class="mrs-how-title">Performance (40%)</div>
+            <div class="mrs-how-desc">
+              Recent skill ratings and match performance data. Tracks form and game-time effectiveness.
+            </div>
+          </article>
+          <article class="mrs-how-card">
+            <div class="mrs-how-icon is-blue" aria-hidden="true">&#10010;</div>
+            <div class="mrs-how-title">Health Status (20%)</div>
+            <div class="mrs-how-desc">
+              Current injury status and recovery progress. Protects player safety and long-term development.
+            </div>
+          </article>
         </div>
       </div>
-    </div>
-
-    <!-- RIGHT: matches info -->
-    <div class="mrs-right">
-      <div class="mrs-matches-info">
-        {{ p.matches_played }} matches played<br>
-        Last: {{ p.last_match }}
-      </div>
-      <button class="mrs-details-btn" onclick="openPlayerModal(
-        '{{ p.name|escapejs }}',
-        '{{ p.position|escapejs }}',
-        '{{ p.health|escapejs }}',
-        '{{ p.health_class|escapejs }}',
-        {{ p.kills }}, {{ p.aces }}, {{ p.blocks }},
-        {{ p.matches_played }}, '{{ p.last_match|escapejs }}',
-        {{ p.attendance }}, {{ p.readiness }},
-        '{{ p.avatar|escapejs }}'
-      )">View Details</button>
-    </div>
-
+    </section>
   </div>
-  {% endwith %}
-  {% endfor %}
-</div>
+</main>
 
-<!-- HOW IT WORKS -->
-<div class="mrs-how">
-  <h2>How the readiness score works</h2>
-  <p>The Match Readiness Score uses a ML model to give coaches a clear, objective view of each player's readiness</p>
-  <div class="mrs-how-grid">
-    <div class="mrs-how-card">
-      <div class="mrs-how-icon" style="background:#e6f9f2;">📋</div>
-      <div class="mrs-how-title">Attendance (40%)</div>
-      <div class="mrs-how-desc">Training session attendance over the past 4 weeks. Consistent participation is key to match readiness.</div>
-    </div>
-    <div class="mrs-how-card">
-      <div class="mrs-how-icon" style="background:#fff8e6;">🏆</div>
-      <div class="mrs-how-title">Performance (40%)</div>
-      <div class="mrs-how-desc">Recent skill ratings and match performance data. Tracks form and game-time effectiveness.</div>
-    </div>
-    <div class="mrs-how-card">
-      <div class="mrs-how-icon" style="background:#f0f9ff;">📈</div>
-      <div class="mrs-how-title">Health Status (20%)</div>
-      <div class="mrs-how-desc">Current injury status and recovery progress. Ensures player safety and long-term development.</div>
-    </div>
-  </div>
-</div>
-
-
-<!-- ── MATCH MODAL ─────────────────────────────────── -->
 <div class="mrs-overlay" id="matchModalOverlay" onclick="closeMatchModal(event)">
-  <div class="mrs-modal">
-    <button class="mrs-modal-close" onclick="closeMatchModal()">✕</button>
+  <div class="mrs-modal" role="dialog" aria-modal="true" aria-labelledby="match-modal-title">
+    <button class="mrs-modal-close" type="button" aria-label="Close match details" onclick="closeMatchModal()">X</button>
 
     {% if next_match %}
     <div class="mrs-match-modal-header">
-      <div class="lbl">🏆 Next Match</div>
-      <div class="vs">{{ next_match.title }}</div>
+      <div class="lbl">Upcoming Match</div>
+      <div class="vs" id="match-modal-title">{{ next_match.title }}</div>
     </div>
 
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📅 Date & Time</span>
+      <span class="mrs-modal-row-label">Date and time</span>
       <span class="mrs-modal-row-val">{{ next_match.scheduled_at|date:"M j, Y" }} at {{ next_match.scheduled_at|time:"g:i A" }}</span>
     </div>
     {% if next_match.location %}
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📍 Location</span>
+      <span class="mrs-modal-row-label">Location</span>
       <span class="mrs-modal-row-val">{{ next_match.location }}</span>
     </div>
     {% endif %}
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">⏱ Duration</span>
+      <span class="mrs-modal-row-label">Duration</span>
       <span class="mrs-modal-row-val">{{ next_match.duration_minutes }} min</span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">🏐 Type</span>
+      <span class="mrs-modal-row-label">Type</span>
       <span class="mrs-modal-row-val">{{ next_match.get_event_type_display }}</span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📋 Status</span>
+      <span class="mrs-modal-row-label">Status</span>
       <span class="mrs-modal-row-val">{{ next_match.get_status_display }}</span>
     </div>
     {% if next_match.details %}
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📝 Notes</span>
+      <span class="mrs-modal-row-label">Notes</span>
       <span class="mrs-modal-row-val">{{ next_match.details }}</span>
     </div>
     {% endif %}
+    {% else %}
+    <div class="mrs-modal-title" id="match-modal-title">No match selected</div>
+    <div class="mrs-modal-sub">There is no upcoming scheduled match for this team yet.</div>
     {% endif %}
   </div>
 </div>
 
-
 <div class="mrs-overlay" id="playerModalOverlay" onclick="closePlayerModal(event)">
-  <div class="mrs-modal">
-    <button class="mrs-modal-close" onclick="closePlayerModal()">✕</button>
+  <div class="mrs-modal" role="dialog" aria-modal="true" aria-labelledby="pm-name">
+    <button class="mrs-modal-close" type="button" aria-label="Close player details" onclick="closePlayerModal()">X</button>
 
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
-      <div id="pm-avatar-wrap" style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#d0e8f0,#b0d0e0);flex-shrink:0;overflow:hidden;">
-        <img id="pm-avatar" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+    <div class="mrs-modal-header">
+      <div class="mrs-avatar mrs-modal-avatar" id="pm-avatar-wrap" aria-hidden="true">
+        <img id="pm-avatar" src="" alt="" hidden>
+        <span id="pm-avatar-fallback">P</span>
       </div>
       <div>
         <div class="mrs-modal-title" id="pm-name"></div>
@@ -700,96 +260,117 @@
       </div>
     </div>
 
-    <div class="mrs-modal-section">Attendance & Health</div>
+    <div class="mrs-modal-section">Attendance and Health</div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">🎯 Games Attended</span>
+      <span class="mrs-modal-row-label">Matches attended</span>
       <span class="mrs-modal-row-val" id="pm-games"></span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📅 Last Match</span>
+      <span class="mrs-modal-row-label">Last match</span>
       <span class="mrs-modal-row-val" id="pm-last"></span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">📊 Attendance Rate</span>
+      <span class="mrs-modal-row-label">Attendance rate</span>
       <span class="mrs-modal-row-val" id="pm-attendance"></span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">🏥 Injury Status</span>
+      <span class="mrs-modal-row-label">Injury status</span>
       <span id="pm-health"></span>
     </div>
     <div class="mrs-modal-row">
-      <span class="mrs-modal-row-label">⚡ Readiness Score</span>
+      <span class="mrs-modal-row-label">Readiness score</span>
       <span class="mrs-modal-row-val" id="pm-readiness"></span>
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-  /* Filter tabs*/
   function filterPlayers(type, btn) {
-    document.querySelectorAll('.mrs-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mrs-tab').forEach((tab) => {
+      tab.classList.remove('active');
+      tab.setAttribute('aria-selected', 'false');
+    });
     btn.classList.add('active');
-    document.querySelectorAll('.mrs-card').forEach(card => {
-      const score = parseInt(card.dataset.readiness);
-      if      (type === 'ready')     card.style.display = score >= 85 ? '' : 'none';
-      else if (type === 'not_ready') card.style.display = score <  85 ? '' : 'none';
-      else                           card.style.display = '';
+    btn.setAttribute('aria-selected', 'true');
+
+    document.querySelectorAll('.mrs-card').forEach((card) => {
+      const score = parseFloat(card.dataset.readiness || '0');
+      if (type === 'ready') {
+        card.hidden = score < 85;
+      } else if (type === 'not_ready') {
+        card.hidden = score >= 85;
+      } else {
+        card.hidden = false;
+      }
     });
   }
 
-  /*Match modal*/
   function openMatchModal() {
-    document.getElementById('matchModalOverlay').classList.add('open');
+    const overlay = document.getElementById('matchModalOverlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
-  function closeMatchModal(e) {
-    if (e && e.target !== document.getElementById('matchModalOverlay')) return;
-    document.getElementById('matchModalOverlay').classList.remove('open');
+
+  function closeMatchModal(event) {
+    const overlay = document.getElementById('matchModalOverlay');
+    if (!overlay) return;
+    if (event && event.target !== overlay) return;
+    overlay.classList.remove('open');
     document.body.style.overflow = '';
   }
 
-  /*Player modal*/
   function openPlayerModal(name, pos, health, healthClass, kills, aces, blocks, games, lastMatch, attendance, readiness, avatar) {
-    document.getElementById('pm-name').textContent       = name;
-    document.getElementById('pm-pos').textContent        = pos;
-    document.getElementById('pm-kills').textContent      = kills;
-    document.getElementById('pm-aces').textContent       = aces;
-    document.getElementById('pm-blocks').textContent     = blocks;
-    document.getElementById('pm-games').textContent      = games + ' games';
-    document.getElementById('pm-last').textContent       = lastMatch;
+    document.getElementById('pm-name').textContent = name;
+    document.getElementById('pm-pos').textContent = pos;
+    document.getElementById('pm-kills').textContent = kills;
+    document.getElementById('pm-aces').textContent = aces;
+    document.getElementById('pm-blocks').textContent = blocks;
+    document.getElementById('pm-games').textContent = games + ' matches';
+    document.getElementById('pm-last').textContent = lastMatch;
     document.getElementById('pm-attendance').textContent = attendance + '%';
-    document.getElementById('pm-readiness').textContent  = readiness + '%';
+    document.getElementById('pm-readiness').textContent = readiness + '%';
 
     const badge = document.getElementById('pm-health');
     badge.className = 'mrs-modal-badge ' + healthClass;
     badge.textContent = health;
 
     const img = document.getElementById('pm-avatar');
+    const fallback = document.getElementById('pm-avatar-fallback');
+    fallback.textContent = (name || 'P').charAt(0).toUpperCase();
+
     if (avatar) {
       img.src = avatar;
-      img.style.display = 'block';
+      img.alt = name;
+      img.hidden = false;
+      fallback.hidden = true;
     } else {
       img.src = '';
-      img.style.display = 'none';
+      img.alt = '';
+      img.hidden = true;
+      fallback.hidden = false;
     }
 
-    document.getElementById('playerModalOverlay').classList.add('open');
+    const overlay = document.getElementById('playerModalOverlay');
+    overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
-  function closePlayerModal(e) {
-    if (e && e.target !== document.getElementById('playerModalOverlay')) return;
-    document.getElementById('playerModalOverlay').classList.remove('open');
+
+  function closePlayerModal(event) {
+    const overlay = document.getElementById('playerModalOverlay');
+    if (!overlay) return;
+    if (event && event.target !== overlay) return;
+    overlay.classList.remove('open');
     document.body.style.overflow = '';
   }
 
-  
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
       closeMatchModal();
       closePlayerModal();
-      document.body.style.overflow = '';
     }
   });
 </script>
-
 {% endblock %}
