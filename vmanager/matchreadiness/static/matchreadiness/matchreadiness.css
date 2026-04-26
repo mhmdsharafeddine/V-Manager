@@ -248,30 +248,65 @@
 }
 
 .mrs-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    position: relative;
+    width: min(540px, 100%);
+    padding: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #1fa7c7, #179abf);
+    box-shadow: 0 10px 20px rgba(28, 155, 188, 0.14);
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.mrs-tabs-indicator {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(33.333% - 3px);
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(20, 129, 160, 0.14);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 0;
+}
+
+.mrs-tabs[data-active="ready"] .mrs-tabs-indicator {
+    transform: translateX(100%);
+}
+
+.mrs-tabs[data-active="not_ready"] .mrs-tabs-indicator {
+    transform: translateX(200%);
 }
 
 .mrs-tab {
-    min-height: 40px;
+    min-height: 34px;
     padding: 0 14px;
-    border: 1px solid rgba(17, 160, 200, 0.18);
+    border: 0;
     border-radius: 999px;
-    background: #ffffff;
-    color: #4d657c;
+    background: transparent;
+    color: #ffffff;
     font: inherit;
-    font-size: 0.84rem;
+    font-size: 0.92rem;
     font-weight: 800;
     cursor: pointer;
-    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+    transition: color 0.2s ease;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .mrs-tab.active {
-    border-color: rgba(24, 143, 176, 0.8);
-    color: #ffffff;
-    background: linear-gradient(135deg, #188fb0, #20a6c7);
-    box-shadow: 0 12px 22px rgba(24, 143, 176, 0.18);
+    background: transparent;
+    color: #177fa0;
+}
+
+.mrs-tab:hover,
+.mrs-tab:focus-visible {
+    transform: none;
 }
 
 .mrs-list {
@@ -869,6 +904,10 @@
     .mrs-match-card {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .mrs-tabs {
+        width: 100%;
     }
 
     .mrs-toolbar-note {

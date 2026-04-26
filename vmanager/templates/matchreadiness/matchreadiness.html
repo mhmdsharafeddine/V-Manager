@@ -4,7 +4,7 @@
 {% block title %}Match Readiness | V-Manager{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'matchreadiness/matchreadiness.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'matchreadiness/matchreadiness.css' %}?v=5">
 {% endblock %}
 
 {% block body_class %}matchreadiness-page{% endblock %}
@@ -13,18 +13,12 @@
 <main class="mrs-shell">
   <div class="container">
     <section class="mrs-hero">
-      <span class="mrs-kicker">Readiness Hub</span>
       <h1>Match Readiness Score</h1>
       <p>
         Assess player readiness at a glance using the club's match-readiness model,
         built from attendance, recent performance, and injury status so coaches can
         make sharper lineup decisions with confidence.
       </p>
-      <div class="mrs-hero-toolbar" aria-label="Readiness factors">
-        <span class="mrs-chip">Attendance 40%</span>
-        <span class="mrs-chip">Performance 40%</span>
-        <span class="mrs-chip">Health 20%</span>
-      </div>
     </section>
 
     <section class="mrs-banner-wrap" aria-label="Next match">
@@ -53,7 +47,8 @@
 
     <section class="mrs-toolbar" aria-label="Roster filters">
       <div class="mrs-toolbar-inner">
-        <div class="mrs-tabs" role="tablist" aria-label="Player readiness filters">
+        <div class="mrs-tabs" role="tablist" aria-label="Player readiness filters" data-active="all">
+          <span class="mrs-tabs-indicator" aria-hidden="true"></span>
           <button class="mrs-tab active" type="button" role="tab" aria-selected="true" onclick="filterPlayers('all', this)">Full roster</button>
           <button class="mrs-tab" type="button" role="tab" aria-selected="false" onclick="filterPlayers('ready', this)">Match ready (85%+)</button>
           <button class="mrs-tab" type="button" role="tab" aria-selected="false" onclick="filterPlayers('not_ready', this)">Needs attention</button>
@@ -152,30 +147,30 @@
         <div class="mrs-how-head">
           <h2>How the readiness score works</h2>
           <p>
-            The Match Readiness Score uses a ML model to give coaches a clear, objective view of each
-            player's readiness.
+            The Match Readiness Score uses a machine learning model that reviews multiple player signals
+            to give coaches a clearer view of match preparedness.
           </p>
         </div>
         <div class="mrs-how-grid">
           <article class="mrs-how-card">
             <div class="mrs-how-icon is-teal" aria-hidden="true">&#10003;</div>
-            <div class="mrs-how-title">Attendance (40%)</div>
+            <div class="mrs-how-title">Attendance History</div>
             <div class="mrs-how-desc">
-              Training session attendance over the past cycle. Consistent participation is key to match readiness.
+              Recent participation patterns help the model understand consistency, availability, and match preparation.
             </div>
           </article>
           <article class="mrs-how-card">
             <div class="mrs-how-icon is-gold" aria-hidden="true">&#10022;</div>
-            <div class="mrs-how-title">Performance (40%)</div>
+            <div class="mrs-how-title">Recent Performance</div>
             <div class="mrs-how-desc">
-              Recent skill ratings and match performance data. Tracks form and game-time effectiveness.
+              Match records such as production, efficiency, and positive actions help reflect current form and impact.
             </div>
           </article>
           <article class="mrs-how-card">
             <div class="mrs-how-icon is-blue" aria-hidden="true">&#10010;</div>
-            <div class="mrs-how-title">Health Status (20%)</div>
+            <div class="mrs-how-title">Health Context</div>
             <div class="mrs-how-desc">
-              Current injury status and recovery progress. Protects player safety and long-term development.
+              Injury status and recovery context help keep the final recommendation grounded in player safety.
             </div>
           </article>
         </div>
@@ -288,6 +283,11 @@
 {% block extra_js %}
 <script>
   function filterPlayers(type, btn) {
+    const tabs = document.querySelector('.mrs-tabs');
+    if (tabs) {
+      tabs.dataset.active = type;
+    }
+
     document.querySelectorAll('.mrs-tab').forEach((tab) => {
       tab.classList.remove('active');
       tab.setAttribute('aria-selected', 'false');
