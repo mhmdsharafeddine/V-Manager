@@ -17,7 +17,7 @@
 
     <div class="hero-toolbar">
       <div class="toolbar-chip">Focus: Use the player roster dropdown below</div>
-      <div class="toolbar-chip">Season scope: Sep to Feb</div>
+      <div class="toolbar-chip">Season scope: Sep to Apr</div>
       <div class="toolbar-chip">Live cards: <span id="player-count"></span></div>
     </div>
 
@@ -109,7 +109,7 @@
         <div class="stats-list">
           <div class="stat-row">
             <span class="k">Months Tracked</span>
-            <span class="v">6</span>
+            <span class="v">8</span>
           </div>
           <div class="stat-row">
             <span class="k">Active Skill Tags</span>
@@ -186,6 +186,11 @@ const playerMap = new Map([[String(teamOverview.id), teamOverview], ...players.m
 let chart;
 let playerInsights = {};
 const playerSelector = document.getElementById("player-roster-selector");
+const seasonLabels = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
+
+function emptySeasonArray() {
+  return Array(seasonLabels.length).fill(0);
+}
 
 function updateHeroSummary(player) {
   document.getElementById("hero-team-rating").textContent = `${player.rating ?? 0}%`;
@@ -211,7 +216,7 @@ function growth(arr) {
 }
 
 function trendLabel(player) {
-  const ratingGrowth = growth((player.monthly_stats || {}).rating || [0, 0, 0, 0, 0, 0]);
+  const ratingGrowth = growth((player.monthly_stats || {}).rating || emptySeasonArray());
   if (ratingGrowth >= 15) return "Accelerating";
   if (ratingGrowth >= 5) return "Improving";
   if (ratingGrowth <= -5) return "Cooling";
@@ -290,10 +295,10 @@ function selectPlayer(playerId) {
       : insight ?? (skills.length ? `${player.name}'s insight is loading...` : "No insight available.");
 
   const stats = player.monthly_stats || {
-    attack_eff: [0, 0, 0, 0, 0, 0],
-    serving_ace: [0, 0, 0, 0, 0, 0],
-    blocking: [0, 0, 0, 0, 0, 0],
-    rating: [0, 0, 0, 0, 0, 0],
+    attack_eff: emptySeasonArray(),
+    serving_ace: emptySeasonArray(),
+    blocking: emptySeasonArray(),
+    rating: emptySeasonArray(),
   };
 
   chart.data.datasets[0].data = stats.attack_eff;
@@ -310,7 +315,7 @@ function selectPlayer(playerId) {
   ];
 
   sets.forEach(({ key, valId, growId }) => {
-    const arr = stats[key] || [0, 0, 0, 0, 0, 0];
+    const arr = stats[key] || emptySeasonArray();
     const lv = lastVal(arr);
     const gr = growth(arr);
     document.getElementById(valId).textContent = `${lv}%`;
@@ -332,7 +337,7 @@ function buildChart() {
   chart = new Chart(ctx, {
     type: "line",
     data: {
-      labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"],
+      labels: seasonLabels,
       datasets: [
         { label: "Attack Efficiency", data: [], borderColor: "#ff5c7a", borderWidth: 2.5, pointBorderColor: "#cf3c56", fill: false, tension: 0.35, ...pointStyle },
         { label: "Serving Ace %", data: [], borderColor: "#f4b027", borderWidth: 2.5, pointBorderColor: "#b68009", fill: false, tension: 0.35, ...pointStyle },
